@@ -1,7 +1,11 @@
-﻿using Blink.Models;
+﻿using System;
+using Blink.Models;
+using System.Net.Http;
 using Blink.Exceptions;
 using System.Reflection;
 using System.Net.Http.Json;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Blink
 {
@@ -27,7 +31,7 @@ namespace Blink
             _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
         }
 
-        public async Task<LoginResult> AuthorizeAsync()
+        public async Task<BlinkAuthorizationData> AuthorizeAsync()
         {
             var body = new
             {
@@ -53,7 +57,13 @@ namespace Blink
             }
             _accountId = loginResult.Account.AccountId;
             _clientId = loginResult.Account.ClientId;
-            return loginResult;
+            return new BlinkAuthorizationData
+            {
+                AccountId = loginResult.Account.AccountId,
+                ClientId = loginResult.Account.ClientId,
+                Tier = loginResult.Account.Tier,
+                Token = loginResult.Auth.Token
+            };
         }
 
         public void SetAuthorization(string token, string tier, int clientId, int accountId)

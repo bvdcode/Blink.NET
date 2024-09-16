@@ -11,7 +11,6 @@ namespace Blink.ConsoleTest
 
         private static async Task Start()
         {
-
             string json = File.ReadAllText("secrets.json");
             var secrets = JsonSerializer.Deserialize<Secrets>(json)!;
             BlinkClient client = new(secrets.Email, secrets.Password);
@@ -20,7 +19,12 @@ namespace Blink.ConsoleTest
             string code = Console.ReadLine() ?? throw new Exception("No code entered");
             await client.VerifyPinAsync(code);
 
-            Console.WriteLine(authData.ToJson());
+            Console.WriteLine("Auth data: " +  authData.ToJson());
+
+            var videos = await client.GetVideosAsync();
+            int count = videos.Count();
+
+            Console.WriteLine("Videos count: " + count);
         }
     }
 }

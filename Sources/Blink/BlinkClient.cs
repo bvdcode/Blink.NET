@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Blink.Models;
 using System.Net.Http;
 using Blink.Exceptions;
@@ -9,6 +10,9 @@ using System.Collections.Generic;
 
 namespace Blink
 {
+    /// <summary>
+    /// Blink client class implementing Blink API
+    /// </summary>
     public class BlinkClient
     {
         private int? _clientId;
@@ -19,6 +23,11 @@ namespace Blink
         private readonly string _userAgent;
         private const string _baseUrl = "https://rest-prod.immedia-semi.com";
 
+        /// <summary>
+        /// Create Blink client with email and password.
+        /// </summary>
+        /// <param name="email">Email</param>
+        /// <param name="password">Password</param>
         public BlinkClient(string email, string password)
         {
             _email = email;
@@ -31,8 +40,48 @@ namespace Blink
             _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
         }
 
+        /// <summary>
+        /// Create Blink client with token, tier, client ID and account ID from 
+        /// <see cref="BlinkAuthorizationData"/> object returned by <see cref="AuthorizeAsync"/> method.
+        /// </summary>
+        /// <param name="token">Authorization token</param>
+        /// <param name="tier">Server API tier, ex. tier 'u018' will be 'https://rest-u018.immedia-semi.com'</param>
+        /// <param name="clientId">Client ID</param>
+        /// <param name="accountId">Account ID</param>
+        public BlinkClient(string token, string tier, int clientId, int accountId)
+        {
+            _email = string.Empty;
+            _password = string.Empty;
+            _clientId = clientId;
+            _accountId = accountId;
+            string baseUrl = $"https://rest-{tier}.immedia-semi.com";
+            _http = new HttpClient()
+            {
+                BaseAddress = new Uri(baseUrl)
+            };
+            _http.DefaultRequestHeaders.Add("token-auth", token);
+            _http = new HttpClient()
+            {
+                BaseAddress = new Uri(_baseUrl)
+            };
+            _userAgent = Assembly.GetEntryAssembly()!.GetName().Name + " v" + Assembly.GetEntryAssembly()!.GetName().Version;
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
+        }
+
+        /// <summary>
+        /// Authorize with email and password provided in constructor.
+        /// </summary>
+        /// <returns><see cref="BlinkAuthorizationData"/> object with authorization data</returns>
+        /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
+        /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
+        /// <exception cref="BlinkClientException">Thrown when no content is returned</exception>
         public async Task<BlinkAuthorizationData> AuthorizeAsync()
         {
+            if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+            {
+                throw new BlinkClientException("Email and password are required in constructor to authorize");
+            }
+
             var body = new
             {
                 unique_id = _userAgent,
@@ -66,18 +115,12 @@ namespace Blink
             };
         }
 
-        public void SetAuthorization(string token, string tier, int clientId, int accountId)
-        {
-            _clientId = clientId;
-            _accountId = accountId;
-            string baseUrl = $"https://rest-{tier}.immedia-semi.com";
-            _http = new HttpClient()
-            {
-                BaseAddress = new Uri(baseUrl)
-            };
-            _http.DefaultRequestHeaders.Add("token-auth", token);
-        }
-
+        /// <summary>
+        /// Verify pin code from text message received after authorization.
+        /// </summary>
+        /// <param name="code">Pin code from text message</param>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
+        /// <exception cref="BlinkClientException">Thrown when pin verification fails</exception>
         public async Task VerifyPinAsync(string code)
         {
             if (_accountId == null)
@@ -96,6 +139,12 @@ namespace Blink
             }
         }
 
+        /// <summary>
+        /// Get dashboard data.
+        /// </summary>
+        /// <returns><see cref="Dashboard"/> object with dashboard data</returns>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
+        /// <exception cref="BlinkClientException">Thrown when failed to get dashboard</exception>
         public async Task<Dashboard> GetDashboardAsync()
         {
             if (_accountId == null)
@@ -112,6 +161,12 @@ namespace Blink
                 ?? throw new BlinkClientException("Failed to get dashboard - no content");
         }
 
+        /// <summary>
+        /// Get videos from Blink camera.
+        /// </summary>
+        /// <returns>Collection of <see cref="BlinkVideoInfo"/> objects with video data</returns>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
+        /// <exception cref="BlinkClientException">Thrown when failed to get videos</exception>
         public async Task<IEnumerable<BlinkVideoInfo>> GetVideosAsync()
         {
             if (_accountId == null)

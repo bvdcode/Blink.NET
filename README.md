@@ -10,3 +10,18 @@
 # Blink.NET
 
 .NET Standard library for downloading video from local storage of Blink cameras
+
+
+# Code Example
+
+```csharp
+BlinkClient client = new(secrets.Email, secrets.Password);
+
+var authData = await client.AuthorizeAsync();
+string code = Console.ReadLine() ?? throw new Exception("No code entered");
+await client.VerifyPinAsync(code);
+
+var videos = await client.GetVideosAsync();
+int count = videos.Count();
+Console.WriteLine("Videos count: " + count);
+```

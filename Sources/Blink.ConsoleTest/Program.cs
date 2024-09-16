@@ -20,7 +20,7 @@ namespace Blink.ConsoleTest
             string code = Console.ReadLine() ?? throw new Exception("No code entered");
             await client.VerifyPinAsync(code);
 
-
+            Console.WriteLine(authData.ToJson());
         }
     }
 }

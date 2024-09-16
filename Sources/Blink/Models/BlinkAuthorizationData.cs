@@ -1,4 +1,6 @@
-﻿namespace Blink.Models
+﻿using System.Text.Json;
+
+namespace Blink.Models
 {
     /// <summary>
     /// Blink authorization data
@@ -31,7 +33,7 @@
         /// <returns>JSON string</returns>
         public string ToJson()
         {
-            return $"{{\"ClientId\":{ClientId},\"AccountId\":{AccountId},\"Tier\":\"{Tier}\",\"Token\":\"{Token}\"}}";
+            return JsonSerializer.Serialize(this);
         }
     }
 }

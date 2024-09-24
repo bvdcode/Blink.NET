@@ -241,5 +241,15 @@ namespace Blink
             }
             return await response.Content.ReadAsByteArrayAsync();
         }
+
+        public async Task DeleteVideoAsync(BlinkVideoInfo video)
+        {
+            // https://rest-u018.immedia-semi.com/api/v1/accounts/474825/networks/565036/sync_modules/579701/local_storage/manifest/5432/clip/delete/2051065322
+
+            string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
+                $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/delete/{video.Id}";
+            var result = await _http.PostAsync(url, null);
+            result.EnsureSuccessStatusCode();
+        }
     }
 }

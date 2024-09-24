@@ -40,6 +40,7 @@ namespace Blink.ConsoleTest
             {
                 byte[] bytes = await client.GetVideoAsync(video);
                 Console.WriteLine($"Video {video.Id} bytes: {bytes.Length}");
+                await client.DeleteVideoAsync(video);
             }
         }
     }

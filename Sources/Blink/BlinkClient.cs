@@ -225,8 +225,17 @@ namespace Blink
         /// </summary>
         /// <param name="video"><see cref="BlinkVideoInfo"/> object with video data</param>
         /// <returns>Video as byte array</returns>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
         public async Task<byte[]> GetVideoAsync(BlinkVideoInfo video)
         {
+            if (_accountId == null)
+            {
+                throw new BlinkClientException("Not authorized");
+            }
+            if (video.NetworkId == 0 || video.ModuleId == 0 || string.IsNullOrWhiteSpace(video.ManifestId))
+            {
+                throw new BlinkClientException("Video data is not valid");
+            }
             string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
                 $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/request/{video.Id}";
 
@@ -237,15 +246,27 @@ namespace Blink
             string contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
             if (contentType != "video/mp4")
             {
-                throw new BlinkClientException("Failed to get video - " + response.ReasonPhrase);
+                throw new BlinkClientException($"Failed to get video {video.Id}, manifest {video.ManifestId} - {response.ReasonPhrase}");
             }
             return await response.Content.ReadAsByteArrayAsync();
         }
 
+        /// <summary>
+        /// Delete video from Blink camera.
+        /// </summary>
+        /// <param name="video"><see cref="BlinkVideoInfo"/> object with video data</param>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
         public async Task DeleteVideoAsync(BlinkVideoInfo video)
         {
-            // https://rest-u018.immedia-semi.com/api/v1/accounts/474825/networks/565036/sync_modules/579701/local_storage/manifest/5432/clip/delete/2051065322
+            if (_accountId == null)
+            {
+                throw new BlinkClientException("Not authorized");
+            }
 
+            if (video.NetworkId == 0 || video.ModuleId == 0 || string.IsNullOrWhiteSpace(video.ManifestId))
+            {
+                throw new BlinkClientException("Video data is not valid");
+            }
             string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
                 $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/delete/{video.Id}";
             var result = await _http.PostAsync(url, null);

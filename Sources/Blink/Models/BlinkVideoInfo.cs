@@ -27,16 +27,28 @@ namespace Blink.Models
         public string CameraName { get; set; } = string.Empty;
 
         /// <summary>
-        /// Video timestamp
+        /// Video timestamp in UTC
         /// </summary>
         [JsonPropertyName("created_at")]
-        public string CreatedAt { get; set; } = string.Empty;
+        public DateTime CreatedAt
+        {
+            get => _createdAt ?? DateTime.MinValue;
+            set
+            {
+                // their format is 2024-09-23T01:01:43+00:00 and it's UTC time,
+                // but JSON parsing as local time, so we need to convert it to UTC
+                if (value.Kind == DateTimeKind.Local)
+                {
+                    _createdAt = value.ToUniversalTime();
+                }
+                else
+                {
+                    _createdAt = value;
+                }
+            }
+        }
 
-        /// <summary>
-        /// Video timestamp in UTC DateTime
-        /// </summary>
-        [JsonIgnore]
-        public DateTime CreatedAtUtc => DateTime.Parse(CreatedAt + "Z");
+        private DateTime? _createdAt;
 
         /// <summary>
         /// Network ID

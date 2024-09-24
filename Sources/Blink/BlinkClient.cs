@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Net.Mime;
 
 namespace Blink
 {
@@ -224,9 +225,10 @@ namespace Blink
         /// Get video from Blink camera.
         /// </summary>
         /// <param name="video"><see cref="BlinkVideoInfo"/> object with video data</param>
+        /// <param name="tryCount">Number of tries to get video</param>
         /// <returns>Video as byte array</returns>
         /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
-        public async Task<byte[]> GetVideoAsync(BlinkVideoInfo video)
+        public async Task<byte[]> GetVideoAsync(BlinkVideoInfo video, int tryCount = 3)
         {
             if (_accountId == null)
             {
@@ -239,16 +241,22 @@ namespace Blink
             string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
                 $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/request/{video.Id}";
 
-            await _http.PostAsync(url, null);
-            await Task.Delay(GeneralSleepTime);
-
-            var response = await _http.GetAsync(url);
-            string contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
-            if (contentType != "video/mp4")
+            int count = 0;
+            string contentType = string.Empty;
+            HttpResponseMessage? response = null;
+            while (count++ < tryCount)
             {
-                throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response.ReasonPhrase}");
+                await _http.PostAsync(url, null);
+                await Task.Delay(GeneralSleepTime);
+
+                response = await _http.GetAsync(url);
+                contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
+                if (contentType == "video/mp4")
+                {
+                    return await response.Content.ReadAsByteArrayAsync();
+                }
             }
-            return await response.Content.ReadAsByteArrayAsync();
+            throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response?.ReasonPhrase ?? "Unknown Error"}");
         }
 
         /// <summary>

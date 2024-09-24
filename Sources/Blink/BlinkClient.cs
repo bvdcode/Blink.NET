@@ -50,6 +50,23 @@ namespace Blink
         /// <param name="accountId">Account ID</param>
         public BlinkClient(string token, string tier, int clientId, int accountId)
         {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                throw new BlinkClientException("Token is required to authorize");
+            }
+            if (string.IsNullOrWhiteSpace(tier))
+            {
+                throw new BlinkClientException("Tier is required to authorize");
+            }
+            if (clientId == 0)
+            {
+                throw new BlinkClientException("Client ID is required to authorize");
+            }
+            if (accountId == 0)
+            {
+                throw new BlinkClientException("Account ID is required to authorize");
+            }
+
             _email = string.Empty;
             _password = string.Empty;
             _clientId = clientId;
@@ -60,10 +77,6 @@ namespace Blink
                 BaseAddress = new Uri(baseUrl)
             };
             _http.DefaultRequestHeaders.Add("token-auth", token);
-            _http = new HttpClient()
-            {
-                BaseAddress = new Uri(_baseUrl)
-            };
             _userAgent = Assembly.GetEntryAssembly()!.GetName().Name + " v" + Assembly.GetEntryAssembly()!.GetName().Version;
             _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
         }
@@ -187,7 +200,7 @@ namespace Blink
             var manifestData = await result.Content.ReadFromJsonAsync<ManifestData>()
                 ?? throw new BlinkClientException("Failed to get videos - no content");
             url += $"/{manifestData.Id}";
-            await Task.Delay(1000); // I don't know why, but their server returns empty response without this delay
+            await Task.Delay(2500); // I don't know why, but their server returns empty response without this delay
             var response = await _http.GetAsync(url);
             var videoResponse = await response.Content.ReadFromJsonAsync<VideoResponse>()
                 ?? throw new BlinkClientException("Failed to get videos - no content");

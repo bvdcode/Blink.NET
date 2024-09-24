@@ -31,5 +31,23 @@ namespace Blink.Models
         /// </summary>
         [JsonPropertyName("created_at")]
         public DateTime CreatedAt { get; set; }
+
+        /// <summary>
+        /// Network ID
+        /// </summary>
+        [JsonIgnore]
+        public int NetworkId { get; set; }
+
+        /// <summary>
+        /// Sync module ID
+        /// </summary>
+        [JsonIgnore]
+        public int ModuleId { get; set; }
+
+        /// <summary>
+        /// Video Manifest ID
+        /// </summary>
+        [JsonIgnore]
+        public string ManifestId { get; set; } = string.Empty;
     }
 }

@@ -204,7 +204,35 @@ namespace Blink
             var response = await _http.GetAsync(url);
             var videoResponse = await response.Content.ReadFromJsonAsync<VideoResponse>()
                 ?? throw new BlinkClientException("Failed to get videos - no content");
+            foreach (var video in videoResponse.Videos)
+            {
+                video.NetworkId = module.NetworkId;
+                video.ModuleId = module.Id;
+                video.ManifestId = videoResponse.ManifestId;
+            }
             return videoResponse.Videos;
+        }
+
+        /// <summary>
+        /// Get video from Blink camera.
+        /// </summary>
+        /// <param name="video"><see cref="BlinkVideoInfo"/> object with video data</param>
+        /// <returns>Video as byte array</returns>
+        public async Task<byte[]> GetVideoAsync(BlinkVideoInfo video)
+        {
+            string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
+                $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/request/{video.Id}";
+
+            await _http.PostAsync(url, null);
+            await Task.Delay(2500);
+
+            var response = await _http.GetAsync(url);
+            string contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
+            if (contentType != "video/mp4")
+            {
+                throw new BlinkClientException("Failed to get video - " + response.ReasonPhrase);
+            }
+            return await response.Content.ReadAsByteArrayAsync();
         }
     }
 }

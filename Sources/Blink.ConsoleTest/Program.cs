@@ -35,6 +35,12 @@ namespace Blink.ConsoleTest
             int count = videos.Count();
 
             Console.WriteLine("Videos count: " + count);
+
+            foreach (var video in videos)
+            {
+                byte[] bytes = await client.GetVideoAsync(video);
+                Console.WriteLine($"Video {video.Id} bytes: {bytes.Length}");
+            }
         }
     }
 }

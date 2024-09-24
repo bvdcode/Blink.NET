@@ -15,6 +15,13 @@ namespace Blink
     /// </summary>
     public class BlinkClient
     {
+        /// <summary>
+        /// For some reason, their server returns empty response without this delay.
+        /// You can control this delay by setting this property.
+        /// Set to 0 to disable delay.
+        /// </summary>
+        public int GeneralSleepTime { get; set; } = 3500;
+
         private int? _clientId;
         private int? _accountId;
         private HttpClient _http;
@@ -191,7 +198,7 @@ namespace Blink
                 ?? throw new BlinkClientException("No sync modules found");
             string url = $"/api/v1/accounts/{_accountId}/networks/{module.NetworkId}/" +
                 $"sync_modules/{module.Id}/local_storage/manifest/request";
-            await Task.Delay(1000); // I don't know why, but their server returns empty response without this delay
+            await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
             var result = await _http.PostAsync(url, null);
             if (!result.IsSuccessStatusCode)
             {
@@ -200,7 +207,7 @@ namespace Blink
             var manifestData = await result.Content.ReadFromJsonAsync<ManifestData>()
                 ?? throw new BlinkClientException("Failed to get videos - no content");
             url += $"/{manifestData.Id}";
-            await Task.Delay(2500); // I don't know why, but their server returns empty response without this delay
+            await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
             var response = await _http.GetAsync(url);
             var videoResponse = await response.Content.ReadFromJsonAsync<VideoResponse>()
                 ?? throw new BlinkClientException("Failed to get videos - no content");
@@ -224,7 +231,7 @@ namespace Blink
                 $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/request/{video.Id}";
 
             await _http.PostAsync(url, null);
-            await Task.Delay(2500);
+            await Task.Delay(GeneralSleepTime);
 
             var response = await _http.GetAsync(url);
             string contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;

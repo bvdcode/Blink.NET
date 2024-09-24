@@ -246,7 +246,7 @@ namespace Blink
             string contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
             if (contentType != "video/mp4")
             {
-                throw new BlinkClientException($"Failed to get video {video.Id}, manifest {video.ManifestId} - {response.ReasonPhrase}");
+                throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response.ReasonPhrase}");
             }
             return await response.Content.ReadAsByteArrayAsync();
         }

@@ -30,7 +30,13 @@ namespace Blink.Models
         /// Video timestamp
         /// </summary>
         [JsonPropertyName("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Video timestamp in UTC DateTime
+        /// </summary>
+        [JsonIgnore]
+        public DateTime CreatedAtUtc => DateTime.Parse(CreatedAt + "Z");
 
         /// <summary>
         /// Network ID

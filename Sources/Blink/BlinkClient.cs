@@ -103,9 +103,10 @@ namespace Blink
                 throw new BlinkClientException("Email and password are required in constructor to authorize");
             }
 
+            string appName = Assembly.GetEntryAssembly()!.GetName().Name + " v" + Assembly.GetEntryAssembly()!.GetName().Version;
             var body = new
             {
-                unique_id = _userAgent,
+                unique_id = appName,
                 email = _email,
                 password = _password
             };

@@ -84,8 +84,8 @@ namespace Blink
             {
                 BaseAddress = new Uri(baseUrl)
             };
-            _http.DefaultRequestHeaders.Add("token-auth", token);
-            _userAgent = Assembly.GetEntryAssembly()!.GetName().Name + " v" + Assembly.GetEntryAssembly()!.GetName().Version;
+            _http.DefaultRequestHeaders.Add("TOKEN-AUTH", token);
+            _userAgent = "35.1ANDROID_28746173";
             _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
         }
 
@@ -123,7 +123,8 @@ namespace Blink
                 {
                     BaseAddress = new Uri(baseUrl)
                 };
-                _http.DefaultRequestHeaders.Add("token-auth", loginResult.Auth.Token);
+                _http.DefaultRequestHeaders.Add("TOKEN-AUTH", loginResult.Auth.Token);
+                _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
             }
             _accountId = loginResult.Account.AccountId;
             _clientId = loginResult.Account.ClientId;

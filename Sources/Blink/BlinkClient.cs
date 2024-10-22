@@ -28,6 +28,7 @@ namespace Blink
         private HttpClient? _http;
         private readonly string _email;
         private readonly string _password;
+        private const string _baseUrl = "https://rest-prod.immedia-semi.com";
 
         /// <summary>
         /// Create Blink client with email and password.
@@ -96,9 +97,8 @@ namespace Blink
                 email = _email,
                 password = _password
             };
-            string baseUrl = "https://rest-prod.immedia-semi.com";
-            _http = CreateHttpClient(baseUrl, string.Empty);
-            var response = await _http.PostAsJsonAsync("/api/v5/account/login", body);
+            var httpClient = GetHttpClient();
+            var response = await httpClient.PostAsJsonAsync("/api/v5/account/login", body);
             if (!response.IsSuccessStatusCode)
             {
                 throw new BlinkClientException("Failed to authorize - " + response.ReasonPhrase);
@@ -107,7 +107,7 @@ namespace Blink
                 ?? throw new BlinkClientException("Failed to authorize - no content");
             if (!string.IsNullOrWhiteSpace(loginResult.Account.Tier) && !string.IsNullOrWhiteSpace(loginResult.Auth.Token))
             {
-                baseUrl = $"https://rest-{loginResult.Account.Tier}.immedia-semi.com";
+                string baseUrl = $"https://rest-{loginResult.Account.Tier}.immedia-semi.com";
                 _http = CreateHttpClient(baseUrl, loginResult.Auth.Token);
             }
             _accountId = loginResult.Account.AccountId;
@@ -121,7 +121,7 @@ namespace Blink
             };
         }
 
-        private HttpClient CreateHttpClient(string baseUrl, string token)
+        private HttpClient CreateHttpClient(string baseUrl, string token = "")
         {
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
@@ -161,7 +161,8 @@ namespace Blink
             {
                 pin = code
             };
-            var response = await _http.PostAsJsonAsync(url, body);
+            var httpClient = GetHttpClient();
+            var response = await httpClient.PostAsJsonAsync(url, body);
             if (!response.IsSuccessStatusCode)
             {
                 throw new BlinkClientException("Failed to verify pin - " + response.ReasonPhrase);
@@ -181,7 +182,8 @@ namespace Blink
                 throw new BlinkClientException("Not authorized");
             }
             string url = $"/api/v3/accounts/{_accountId}/homescreen";
-            var response = await _http.GetAsync(url);
+            var httpClient = GetHttpClient();
+            var response = await httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
                 throw new BlinkClientException("Failed to get dashboard - " + response.ReasonPhrase);
@@ -208,7 +210,8 @@ namespace Blink
             string url = $"/api/v1/accounts/{_accountId}/networks/{module.NetworkId}/" +
                 $"sync_modules/{module.Id}/local_storage/manifest/request";
             await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
-            var result = await _http.PostAsync(url, null);
+            var httpClient = GetHttpClient();
+            var result = await httpClient.PostAsync(url, null);
             if (!result.IsSuccessStatusCode)
             {
                 throw new BlinkClientException("Failed to get videos - " + result.ReasonPhrase);
@@ -217,7 +220,7 @@ namespace Blink
                 ?? throw new BlinkClientException("Failed to get videos - no content");
             url += $"/{manifestData.Id}";
             await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
-            var response = await _http.GetAsync(url);
+            var response = await httpClient.GetAsync(url);
             var videoResponse = await response.Content.ReadFromJsonAsync<VideoResponse>()
                 ?? throw new BlinkClientException("Failed to get videos - no content");
             foreach (var video in videoResponse.Videos)
@@ -252,12 +255,13 @@ namespace Blink
             int count = 0;
             string contentType = string.Empty;
             HttpResponseMessage? response = null;
+            var httpClient = GetHttpClient();
             while (count++ < tryCount)
             {
-                await _http.PostAsync(url, null);
+                await httpClient.PostAsync(url, null);
                 await Task.Delay(GeneralSleepTime);
 
-                response = await _http.GetAsync(url);
+                response = await httpClient.GetAsync(url);
                 contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
                 if (contentType == "video/mp4")
                 {
@@ -285,8 +289,14 @@ namespace Blink
             }
             string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
                 $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/delete/{video.Id}";
-            var result = await _http.PostAsync(url, null);
+            var httpClient = GetHttpClient();
+            var result = await httpClient.PostAsync(url, null);
             result.EnsureSuccessStatusCode();
+        }
+
+        private HttpClient GetHttpClient()
+        {
+            return _http ??= CreateHttpClient(_baseUrl);
         }
     }
 }

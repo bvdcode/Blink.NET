@@ -28,8 +28,6 @@ namespace Blink
         private HttpClient? _http;
         private readonly string _email;
         private readonly string _password;
-        private readonly string _userAgent;
-        private const string _baseUrl = "https://rest-prod.immedia-semi.com";
 
         /// <summary>
         /// Create Blink client with email and password.
@@ -98,6 +96,8 @@ namespace Blink
                 email = _email,
                 password = _password
             };
+            string baseUrl = "https://rest-prod.immedia-semi.com";
+            _http = CreateHttpClient(baseUrl, string.Empty);
             var response = await _http.PostAsJsonAsync("/api/v5/account/login", body);
             if (!response.IsSuccessStatusCode)
             {
@@ -107,7 +107,7 @@ namespace Blink
                 ?? throw new BlinkClientException("Failed to authorize - no content");
             if (!string.IsNullOrWhiteSpace(loginResult.Account.Tier) && !string.IsNullOrWhiteSpace(loginResult.Auth.Token))
             {
-                string baseUrl = $"https://rest-{loginResult.Account.Tier}.immedia-semi.com";
+                baseUrl = $"https://rest-{loginResult.Account.Tier}.immedia-semi.com";
                 _http = CreateHttpClient(baseUrl, loginResult.Auth.Token);
             }
             _accountId = loginResult.Account.AccountId;
@@ -123,10 +123,6 @@ namespace Blink
 
         private HttpClient CreateHttpClient(string baseUrl, string token)
         {
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                throw new BlinkClientException("Token is required to authorize");
-            }
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
                 throw new BlinkClientException("Base URL is required to authorize");
@@ -135,13 +131,16 @@ namespace Blink
             {
                 BaseAddress = new Uri(baseUrl)
             };
-            _http.DefaultRequestHeaders.TryAddWithoutValidation("TOKEN-AUTH", token);
             string appBuild = "ANDROID_28746173";
             string userAgent = "35.1" + appBuild;
             _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
             _http.DefaultRequestHeaders.TryAddWithoutValidation("APP-BUILD", appBuild);
             _http.DefaultRequestHeaders.TryAddWithoutValidation("LOCALE", "en_US");
             _http.DefaultRequestHeaders.TryAddWithoutValidation("X-Blink-Time-Zone", "America/Los_Angeles");
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                _http.DefaultRequestHeaders.TryAddWithoutValidation("TOKEN-AUTH", token);
+            }
             return _http;
         }
 

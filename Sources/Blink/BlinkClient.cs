@@ -25,7 +25,7 @@ namespace Blink
 
         private int? _clientId;
         private int? _accountId;
-        private HttpClient _http;
+        private HttpClient? _http;
         private readonly string _email;
         private readonly string _password;
         private readonly string _userAgent;
@@ -40,12 +40,6 @@ namespace Blink
         {
             _email = email;
             _password = password;
-            _http = new HttpClient()
-            {
-                BaseAddress = new Uri(_baseUrl)
-            };
-            _userAgent = Assembly.GetEntryAssembly()!.GetName().Name + " v" + Assembly.GetEntryAssembly()!.GetName().Version;
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
         }
 
         /// <summary>
@@ -80,13 +74,7 @@ namespace Blink
             _clientId = clientId;
             _accountId = accountId;
             string baseUrl = $"https://rest-{tier}.immedia-semi.com";
-            _http = new HttpClient()
-            {
-                BaseAddress = new Uri(baseUrl)
-            };
-            _http.DefaultRequestHeaders.Add("TOKEN-AUTH", token);
-            _userAgent = "35.1ANDROID_28746173";
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
+            _http = CreateHttpClient(baseUrl, token);
         }
 
         /// <summary>
@@ -120,12 +108,7 @@ namespace Blink
             if (!string.IsNullOrWhiteSpace(loginResult.Account.Tier) && !string.IsNullOrWhiteSpace(loginResult.Auth.Token))
             {
                 string baseUrl = $"https://rest-{loginResult.Account.Tier}.immedia-semi.com";
-                _http = new HttpClient()
-                {
-                    BaseAddress = new Uri(baseUrl)
-                };
-                _http.DefaultRequestHeaders.Add("TOKEN-AUTH", loginResult.Auth.Token);
-                _http.DefaultRequestHeaders.UserAgent.ParseAdd(_userAgent);
+                _http = CreateHttpClient(baseUrl, loginResult.Auth.Token);
             }
             _accountId = loginResult.Account.AccountId;
             _clientId = loginResult.Account.ClientId;
@@ -136,6 +119,30 @@ namespace Blink
                 Tier = loginResult.Account.Tier,
                 Token = loginResult.Auth.Token
             };
+        }
+
+        private HttpClient CreateHttpClient(string baseUrl, string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                throw new BlinkClientException("Token is required to authorize");
+            }
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                throw new BlinkClientException("Base URL is required to authorize");
+            }
+            _http = new HttpClient()
+            {
+                BaseAddress = new Uri(baseUrl)
+            };
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("TOKEN-AUTH", token);
+            string appBuild = "ANDROID_28746173";
+            string userAgent = "35.1" + appBuild;
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("APP-BUILD", appBuild);
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("LOCALE", "en_US");
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("X-Blink-Time-Zone", "America/Los_Angeles");
+            return _http;
         }
 
         /// <summary>

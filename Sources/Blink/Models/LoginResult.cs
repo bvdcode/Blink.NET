@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Blink.Models
 {
@@ -42,5 +43,14 @@ namespace Blink.Models
         /// </summary>
         [JsonPropertyName("allow_pin_resend_seconds")]
         public int AllowPinResendSeconds { get; set; }
+
+        /// <summary>
+        /// Convert to JSON string
+        /// </summary>
+        /// <returns>JSON string</returns>
+        public string ToJson()
+        {
+            return JsonSerializer.Serialize(this);
+        }
     }
 }

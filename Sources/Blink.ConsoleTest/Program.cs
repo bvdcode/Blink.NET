@@ -13,11 +13,8 @@ namespace Blink.ConsoleTest
         {
             string json = File.ReadAllText("secrets.json");
             var secrets = JsonSerializer.Deserialize<Secrets>(json)!;
-            BlinkClient client = string.IsNullOrEmpty(secrets.Token) ?
-                new BlinkClient(secrets.Email, secrets.Password) :
-                new(secrets.Email, secrets.Password, secrets.Token);
-
-            var authData = await client.AuthorizeAsync(reauth: string.IsNullOrEmpty(secrets.Token));
+            BlinkClient client = new();
+            var authData = await client.AuthorizeAsync(secrets.Email, secrets.Password, reauth: string.IsNullOrEmpty(secrets.Token));
 
             if (string.IsNullOrEmpty(secrets.Token))
             {

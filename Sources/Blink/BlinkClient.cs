@@ -26,16 +26,16 @@ namespace Blink
         private int? _clientId;
         private int? _accountId;
         private HttpClient? _http;
-        private readonly string _email;
-        private readonly string _password;
-        private const string _baseUrl = "https://rest-prod.immedia-semi.com";
+        private readonly string _uniqueId = "15c204d5-1577-4825-9bc8-b09efe619f00";
 
         /// <summary>
-        /// Create Blink client with email and password.
+        /// Authorize with email and password provided in constructor.
         /// </summary>
-        /// <param name="email">Email</param>
-        /// <param name="password">Password</param>
-        public BlinkClient(string email, string password)
+        /// <returns><see cref="LoginResult"/> object with authorization data</returns>
+        /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
+        /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
+        /// <exception cref="BlinkClientException">Thrown when no content is returned</exception>
+        public async Task<LoginResult> AuthorizeAsync(string email, string password, bool reauth = true)
         {
             if (string.IsNullOrWhiteSpace(email))
             {
@@ -45,48 +45,15 @@ namespace Blink
             {
                 throw new BlinkClientException("Password is required to authorize");
             }
-            _email = email;
-            _password = password;
-        }
 
-        /// <summary>
-        /// Create Blink client with token, tier, client ID and account ID from 
-        /// <see cref="BlinkAuthorizationData"/> object returned by <see cref="AuthorizeAsync"/> method.
-        /// </summary>
-        /// <param name="email">Email</param>
-        /// <param name="password">Password</param>
-        /// <param name="token">Authorization token</param>
-        public BlinkClient(string email, string password, string token) : this(email, password)
-        {
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                throw new BlinkClientException("Token is required to authorize");
-            }
-            _http = CreateHttpClient(_baseUrl, token);
-        }
-
-        /// <summary>
-        /// Authorize with email and password provided in constructor.
-        /// </summary>
-        /// <returns><see cref="BlinkAuthorizationData"/> object with authorization data</returns>
-        /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
-        /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
-        /// <exception cref="BlinkClientException">Thrown when no content is returned</exception>
-        public async Task<BlinkAuthorizationData> AuthorizeAsync(bool reauth = false)
-        {
-            if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
-            {
-                throw new BlinkClientException("Email and password are required in constructor to authorize");
-            }
-
-            string appName = Assembly.GetEntryAssembly()!.GetName().Name + " v" + Assembly.GetEntryAssembly()!.GetName().Version;
+            string clientName = Assembly.GetEntryAssembly()!.GetName().Name + "_v" + Assembly.GetEntryAssembly()!.GetName().Version;
             var body = new
             {
-                unique_id = appName,
-                email = _email,
-                password = _password,
-                client_name = "Blink.NET Library",
-                reauth,
+                unique_id = _uniqueId,
+                email,
+                password,
+                client_name = clientName,
+                reauth = reauth ? "true" : "false",
 
                 //app_version = "",
                 //client_type = "",
@@ -94,6 +61,8 @@ namespace Blink
                 //notification_key = "",
                 //os_version = "",
             };
+            const string _baseUrl = "https://rest-prod.immedia-semi.com";
+            _http = CreateHttpClient(_baseUrl);
             var httpClient = GetHttpClient();
             var response = await httpClient.PostAsJsonAsync("/api/v5/account/login", body);
             if (!response.IsSuccessStatusCode)
@@ -113,16 +82,14 @@ namespace Blink
             }
             _accountId = loginResult.Account.AccountId;
             _clientId = loginResult.Account.ClientId;
-            return new BlinkAuthorizationData
+            if (_accountId == null || _clientId == null)
             {
-                AccountId = loginResult.Account.AccountId,
-                ClientId = loginResult.Account.ClientId,
-                Tier = loginResult.Account.Tier,
-                Token = loginResult.Auth.Token
-            };
+                throw new BlinkClientException("Failed to authorize - no account ID or client ID in response");
+            }
+            return loginResult;
         }
 
-        private HttpClient CreateHttpClient(string baseUrl, string token = "")
+        private HttpClient CreateHttpClient(string baseUrl, string? token = "")
         {
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
@@ -155,7 +122,11 @@ namespace Blink
         {
             if (_accountId == null)
             {
-                throw new BlinkClientException("Not authorized");
+                throw new BlinkClientException("Account ID is required to verify pin");
+            }
+            if (_clientId == null)
+            {
+                throw new BlinkClientException("Client ID is required to verify pin");
             }
             string url = $"/api/v4/account/{_accountId}/client/{_clientId}/pin/verify";
             var body = new
@@ -297,7 +268,7 @@ namespace Blink
 
         private HttpClient GetHttpClient()
         {
-            return _http ??= CreateHttpClient(_baseUrl);
+            return _http ?? throw new BlinkClientException("Not authorized");
         }
     }
 }

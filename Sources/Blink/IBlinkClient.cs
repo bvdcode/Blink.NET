@@ -1,6 +1,7 @@
 ﻿using Blink.Models;
-using System.Collections.Generic;
+using Blink.Exceptions;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Blink
 {
@@ -17,12 +18,13 @@ namespace Blink
         int GeneralSleepTime { get; set; }
 
         /// <summary>
-        /// Authorizes the client asynchronously.
+        /// Authorize with email and password provided in constructor.
         /// </summary>
-        /// <param name="reauth">If set to <c>true</c>, forces reauthorization.
-        /// If set to <c>false</c>, the client will use the existing authorization token if it is still valid.</param>
-        /// <returns>A task that represents the asynchronous authorization operation. The task result contains the authorization data.</returns>
-        Task<BlinkAuthorizationData> AuthorizeAsync(bool reauth = false);
+        /// <returns><see cref="LoginResult"/> object with authorization data</returns>
+        /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
+        /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
+        /// <exception cref="BlinkClientException">Thrown when no content is returned</exception>
+        Task<LoginResult> AuthorizeAsync(string email, string password, bool reauth = true);
 
         /// <summary>
         /// Deletes a specified video asynchronously.

@@ -37,6 +37,14 @@ namespace Blink
         /// <param name="password">Password</param>
         public BlinkClient(string email, string password)
         {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                throw new BlinkClientException("Email is required to authorize");
+            }
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                throw new BlinkClientException("Password is required to authorize");
+            }
             _email = email;
             _password = password;
         }
@@ -45,35 +53,16 @@ namespace Blink
         /// Create Blink client with token, tier, client ID and account ID from 
         /// <see cref="BlinkAuthorizationData"/> object returned by <see cref="AuthorizeAsync"/> method.
         /// </summary>
+        /// <param name="email">Email</param>
+        /// <param name="password">Password</param>
         /// <param name="token">Authorization token</param>
-        /// <param name="tier">Server API tier, ex. tier 'u018' will be 'https://rest-u018.immedia-semi.com'</param>
-        /// <param name="clientId">Client ID</param>
-        /// <param name="accountId">Account ID</param>
-        public BlinkClient(string token, string tier, int clientId, int accountId)
+        public BlinkClient(string email, string password, string token) : this(email, password)
         {
             if (string.IsNullOrWhiteSpace(token))
             {
                 throw new BlinkClientException("Token is required to authorize");
             }
-            if (string.IsNullOrWhiteSpace(tier))
-            {
-                throw new BlinkClientException("Tier is required to authorize");
-            }
-            if (clientId == 0)
-            {
-                throw new BlinkClientException("Client ID is required to authorize");
-            }
-            if (accountId == 0)
-            {
-                throw new BlinkClientException("Account ID is required to authorize");
-            }
-
-            _email = string.Empty;
-            _password = string.Empty;
-            _clientId = clientId;
-            _accountId = accountId;
-            string baseUrl = $"https://rest-{tier}.immedia-semi.com";
-            _http = CreateHttpClient(baseUrl, token);
+            _http = CreateHttpClient(_baseUrl, token);
         }
 
         /// <summary>
@@ -117,6 +106,10 @@ namespace Blink
             {
                 string baseUrl = $"https://rest-{loginResult.Account.Tier}.immedia-semi.com";
                 _http = CreateHttpClient(baseUrl, loginResult.Auth.Token);
+            }
+            else
+            {
+                throw new BlinkClientException("Failed to authorize - no token or tier in response");
             }
             _accountId = loginResult.Account.AccountId;
             _clientId = loginResult.Account.ClientId;

@@ -10,16 +10,7 @@ namespace Blink.ConsoleTest
         [JsonPropertyName("password")]
         public string Password { get; set; } = string.Empty;
 
-        [JsonPropertyName("tier")]
-        public string Tier { get; set; } = string.Empty;
-
         [JsonPropertyName("token")]
         public string Token { get; set; } = string.Empty;
-
-        [JsonPropertyName("accountId")]
-        public int AccountId { get; set; }
-
-        [JsonPropertyName("clientId")]
-        public int ClientId { get; set; }
     }
 }

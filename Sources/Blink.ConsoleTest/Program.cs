@@ -13,17 +13,14 @@ namespace Blink.ConsoleTest
         {
             string json = File.ReadAllText("secrets.json");
             var secrets = JsonSerializer.Deserialize<Secrets>(json)!;
-
-            // There is two ways to authorize with Blink API: with credentials or with already obtained token.
-            const bool authorizeWithCredentials = false;
-
-            BlinkClient client = authorizeWithCredentials ?
+            BlinkClient client = string.IsNullOrEmpty(secrets.Token) ?
                 new BlinkClient(secrets.Email, secrets.Password) :
-                new(secrets.Token, secrets.Tier, secrets.ClientId, secrets.AccountId);
+                new(secrets.Email, secrets.Password, secrets.Token);
 
-            if (authorizeWithCredentials)
+            var authData = await client.AuthorizeAsync(reauth: string.IsNullOrEmpty(secrets.Token));
+
+            if (string.IsNullOrEmpty(secrets.Token))
             {
-                var authData = await client.AuthorizeAsync();
                 string code = Console.ReadLine() ?? throw new Exception("No code entered");
                 await client.VerifyPinAsync(code);
 

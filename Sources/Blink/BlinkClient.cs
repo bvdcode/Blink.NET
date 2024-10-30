@@ -83,7 +83,7 @@ namespace Blink
         /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
         /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
         /// <exception cref="BlinkClientException">Thrown when no content is returned</exception>
-        public async Task<BlinkAuthorizationData> AuthorizeAsync()
+        public async Task<BlinkAuthorizationData> AuthorizeAsync(bool reauth = false)
         {
             if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
             {
@@ -95,7 +95,15 @@ namespace Blink
             {
                 unique_id = appName,
                 email = _email,
-                password = _password
+                password = _password,
+                client_name = "Blink.NET Library",
+                reauth,
+
+                //app_version = "",
+                //client_type = "",
+                //device_identifier = "Amazon ",
+                //notification_key = "",
+                //os_version = "",
             };
             var httpClient = GetHttpClient();
             var response = await httpClient.PostAsJsonAsync("/api/v5/account/login", body);

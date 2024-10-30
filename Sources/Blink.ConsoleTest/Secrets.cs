@@ -9,8 +9,5 @@ namespace Blink.ConsoleTest
 
         [JsonPropertyName("password")]
         public string Password { get; set; } = string.Empty;
-
-        [JsonPropertyName("token")]
-        public string Token { get; set; } = string.Empty;
     }
 }

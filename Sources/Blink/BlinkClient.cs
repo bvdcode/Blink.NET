@@ -7,7 +7,6 @@ using System.Reflection;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Net.Mime;
 
 namespace Blink
 {
@@ -16,6 +15,11 @@ namespace Blink
     /// </summary>
     public class BlinkClient : IBlinkClient
     {
+        /// <summary>
+        /// Unique ID to avoid reauthorization by pin code
+        /// </summary>
+        public string UniqueId { get; set; } = Guid.NewGuid().ToString();
+
         /// <summary>
         /// For some reason, their server returns empty response without this delay.
         /// You can control this delay by setting this property.
@@ -26,7 +30,7 @@ namespace Blink
         private int? _clientId;
         private int? _accountId;
         private HttpClient? _http;
-        private readonly string _uniqueId = "15c204d5-1577-4825-9bc8-b09efe619f00";
+
 
         /// <summary>
         /// Authorize with email and password provided in constructor.
@@ -49,7 +53,7 @@ namespace Blink
             string clientName = Assembly.GetEntryAssembly()!.GetName().Name + "_v" + Assembly.GetEntryAssembly()!.GetName().Version;
             var body = new
             {
-                unique_id = _uniqueId,
+                unique_id = UniqueId,
                 email,
                 password,
                 client_name = clientName,

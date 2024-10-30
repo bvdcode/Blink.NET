@@ -14,14 +14,12 @@ namespace Blink.ConsoleTest
             string json = File.ReadAllText("secrets.json");
             var secrets = JsonSerializer.Deserialize<Secrets>(json)!;
             BlinkClient client = new();
-            var authData = await client.AuthorizeAsync(secrets.Email, secrets.Password, reauth: string.IsNullOrEmpty(secrets.Token));
+            var authData = await client.AuthorizeAsync(secrets.Email, secrets.Password, reauth: true);
 
-            if (string.IsNullOrEmpty(secrets.Token))
+            if (authData.Account.IsClientVerificationRequired)
             {
                 string code = Console.ReadLine() ?? throw new Exception("No code entered");
                 await client.VerifyPinAsync(code);
-
-                // Just save the authorization data and use it later to authorize.
                 Console.WriteLine("Auth data: " + authData.ToJson());
             }
 

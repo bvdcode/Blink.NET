@@ -14,7 +14,7 @@ namespace Blink
     /// <summary>
     /// Blink client class implementing Blink API
     /// </summary>
-    public class BlinkClient
+    public class BlinkClient : IBlinkClient
     {
         /// <summary>
         /// For some reason, their server returns empty response without this delay.

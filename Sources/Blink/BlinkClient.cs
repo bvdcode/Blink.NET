@@ -108,7 +108,7 @@ namespace Blink
             _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
             _http.DefaultRequestHeaders.TryAddWithoutValidation("APP-BUILD", appBuild);
             _http.DefaultRequestHeaders.TryAddWithoutValidation("LOCALE", "en_US");
-            _http.DefaultRequestHeaders.TryAddWithoutValidation("X-Blink-Time-Zone", "America/Los_Angeles");
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("X-Blink-Time-Zone", "UTC");
             if (!string.IsNullOrWhiteSpace(token))
             {
                 _http.DefaultRequestHeaders.TryAddWithoutValidation("TOKEN-AUTH", token);

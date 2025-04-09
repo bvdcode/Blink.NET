@@ -71,7 +71,13 @@ namespace Blink
             var response = await httpClient.PostAsJsonAsync("/api/v5/account/login", body);
             if (!response.IsSuccessStatusCode)
             {
-                throw new BlinkClientException("Failed to authorize - " + response.ReasonPhrase);
+                // if has content, try to read error message
+                var error = await response.Content.ReadAsStringAsync();
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    throw new BlinkClientException($"Failed to authorize - {response.StatusCode} ({response.ReasonPhrase}) - {error}");
+                }
+                throw new BlinkClientException($"Failed to authorize - {response.StatusCode} ({response.ReasonPhrase})");
             }
             var loginResult = await response.Content.ReadFromJsonAsync<LoginResult>()
                 ?? throw new BlinkClientException("Failed to authorize - no content");

@@ -272,7 +272,13 @@ namespace Blink
             string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
                 $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/delete/{video.Id}";
             var httpClient = GetHttpClient();
+            await Task.Delay(GeneralSleepTime);
             var result = await httpClient.PostAsync(url, null);
+            if (!result.IsSuccessStatusCode)
+            {
+                string error = await result.Content.ReadAsStringAsync();
+                throw new BlinkClientException($"Failed to delete video {video.Id} - {result.ReasonPhrase} - {error}");
+            }
             result.EnsureSuccessStatusCode();
         }
 

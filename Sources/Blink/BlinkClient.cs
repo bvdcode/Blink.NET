@@ -16,7 +16,7 @@ namespace Blink
     public class BlinkClient : IBlinkClient
     {
         /// <summary>
-        /// Unique ID to avoid reauthorization by pin code
+        /// Unique ID to avoid reauthorization by pin code, for example: "a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6" (<see cref="Guid.NewGuid()"/>)
         /// </summary>
         public string UniqueId { get; set; } = Guid.NewGuid().ToString();
 
@@ -35,6 +35,9 @@ namespace Blink
         /// <summary>
         /// Authorize with email and password provided in constructor.
         /// </summary>
+        /// <param name="email">Email address</param>
+        /// <param name="password">Password</param>
+        /// <param name="reauth">Set to true if you already authorized with pin code and want to reauthorize. This is from Blink app behavior.</param>
         /// <returns><see cref="LoginResult"/> object with authorization data</returns>
         /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
         /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
@@ -43,14 +46,14 @@ namespace Blink
         {
             if (string.IsNullOrWhiteSpace(email))
             {
-                throw new BlinkClientException("Email is required to authorize");
+                throw new BlinkClientException("Email is required to authorize but not provided");
             }
             if (string.IsNullOrWhiteSpace(password))
             {
-                throw new BlinkClientException("Password is required to authorize");
+                throw new BlinkClientException("Password is required to authorize but not provided");
             }
 
-            string clientName = Assembly.GetEntryAssembly()!.GetName().Name + "_v" + Assembly.GetEntryAssembly()!.GetName().Version;
+            string clientName = Assembly.GetEntryAssembly().GetName().Name + "_v" + Assembly.GetEntryAssembly().GetName().Version;
             var body = new
             {
                 unique_id = UniqueId,
@@ -59,6 +62,7 @@ namespace Blink
                 client_name = clientName,
                 reauth = reauth ? "true" : "false",
 
+                // Disabled optional parameters - it works without them for now
                 //app_version = "",
                 //client_type = "",
                 //device_identifier = "Amazon ",
@@ -123,7 +127,7 @@ namespace Blink
         }
 
         /// <summary>
-        /// Verify pin code from text message received after authorization.
+        /// Verify pin code from text message received after authorization. You'll receive the code to your phone number.
         /// </summary>
         /// <param name="code">Pin code from text message</param>
         /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
@@ -175,20 +179,13 @@ namespace Blink
         }
 
         /// <summary>
-        /// Get videos from Blink camera.
+        /// Get videos from specified module. Get modules from <see cref="GetDashboardAsync"/> method - <see cref="Dashboard.SyncModules"/>.
         /// </summary>
         /// <returns>Collection of <see cref="BlinkVideoInfo"/> objects with video data</returns>
         /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
         /// <exception cref="BlinkClientException">Thrown when failed to get videos</exception>
-        public async Task<IEnumerable<BlinkVideoInfo>> GetVideosAsync()
+        public async Task<IEnumerable<BlinkVideoInfo>> GetVideosFromModuleAsync(SyncModule module)
         {
-            if (_accountId == null)
-            {
-                throw new BlinkClientException("Not authorized");
-            }
-            var dashboard = await GetDashboardAsync();
-            var module = dashboard.SyncModules.FirstOrDefault()
-                ?? throw new BlinkClientException("No sync modules found");
             string url = $"/api/v1/accounts/{_accountId}/networks/{module.NetworkId}/" +
                 $"sync_modules/{module.Id}/local_storage/manifest/request";
             await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
@@ -215,13 +212,37 @@ namespace Blink
         }
 
         /// <summary>
-        /// Get video from Blink camera.
+        /// Get videos from single module (the first one in the dashboard). Throws exception if more than one module found.
+        /// </summary>
+        /// <returns>Collection of <see cref="BlinkVideoInfo"/> objects with video data</returns>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
+        /// <exception cref="BlinkClientException">Thrown when failed to get videos</exception>
+        /// <exception cref="BlinkClientException">Thrown when more than one module found</exception>
+        public async Task<IEnumerable<BlinkVideoInfo>> GetVideosFromSingleModuleAsync()
+        {
+            if (_accountId == null)
+            {
+                throw new BlinkClientException("Not authorized");
+            }
+            var dashboard = await GetDashboardAsync();
+            if (dashboard.SyncModules.Length > 1)
+            {
+                throw new BlinkClientException("More than one sync module found. Use GetVideosAsync() instead.");
+            }
+            var module = dashboard.SyncModules.SingleOrDefault()
+                ?? throw new BlinkClientException("No sync modules found");
+            return await GetVideosFromModuleAsync(module);
+        }
+
+        /// <summary>
+        /// Get video file as byte array.
         /// </summary>
         /// <param name="video"><see cref="BlinkVideoInfo"/> object with video data</param>
         /// <param name="tryCount">Number of tries to get video</param>
         /// <returns>Video as byte array</returns>
         /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
-        public async Task<byte[]> GetVideoAsync(BlinkVideoInfo video, int tryCount = 3)
+        /// <exception cref="BlinkClientException">Thrown when video data is not valid. Please create an issue if you see this error.</exception>
+        public async Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 3)
         {
             if (_accountId == null)
             {
@@ -250,7 +271,7 @@ namespace Blink
                     return await response.Content.ReadAsByteArrayAsync();
                 }
             }
-            throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response?.ReasonPhrase ?? "Unknown Error"}");
+            throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response?.ReasonPhrase ?? "Unknown Error"}. Please create an issue if you see this error.");
         }
 
         /// <summary>

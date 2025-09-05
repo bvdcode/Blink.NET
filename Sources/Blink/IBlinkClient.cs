@@ -20,6 +20,9 @@ namespace Blink
         /// <summary>
         /// Authorize with email and password provided in constructor.
         /// </summary>
+        /// <param name="email">Email address</param>
+        /// <param name="password">Password</param>
+        /// <param name="reauth">Set to true if you already authorized with pin code and want to reauthorize. This is from Blink app behavior.</param>
         /// <returns><see cref="LoginResult"/> object with authorization data</returns>
         /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
         /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
@@ -45,13 +48,24 @@ namespace Blink
         /// <param name="video">The video information to retrieve.</param>
         /// <param name="tryCount">The number of attempts to retrieve the video. Default is 3.</param>
         /// <returns>A task that represents the asynchronous operation. The task result contains the video data as a byte array.</returns>
-        Task<byte[]> GetVideoAsync(BlinkVideoInfo video, int tryCount = 3);
+        Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 3);
 
         /// <summary>
-        /// Retrieves a list of videos asynchronously.
+        /// Get videos from single module (the first one in the dashboard). Throws exception if more than one module found.
         /// </summary>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an enumerable collection of video information.</returns>
-        Task<IEnumerable<BlinkVideoInfo>> GetVideosAsync();
+        /// <returns>Collection of <see cref="BlinkVideoInfo"/> objects with video data</returns>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
+        /// <exception cref="BlinkClientException">Thrown when failed to get videos</exception>
+        /// <exception cref="BlinkClientException">Thrown when more than one module found</exception>
+        Task<IEnumerable<BlinkVideoInfo>> GetVideosFromSingleModuleAsync();
+
+        /// <summary>
+        /// Get videos from specified module. Get modules from <see cref="GetDashboardAsync"/> method - <see cref="Dashboard.SyncModules"/>.
+        /// </summary>
+        /// <returns>Collection of <see cref="BlinkVideoInfo"/> objects with video data</returns>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
+        /// <exception cref="BlinkClientException">Thrown when failed to get videos</exception>
+        Task<IEnumerable<BlinkVideoInfo>> GetVideosFromModuleAsync(SyncModule module);
 
         /// <summary>
         /// Verifies a specified PIN code asynchronously.

@@ -23,14 +23,14 @@ namespace Blink.ConsoleTest
                 Console.WriteLine("Auth data: " + authData.ToJson());
             }
 
-            var videos = await client.GetVideosAsync();
+            var videos = await client.GetVideosFromSingleModuleAsync();
             int count = videos.Count();
 
             Console.WriteLine("Videos count: " + count);
 
             foreach (var video in videos)
             {
-                byte[] bytes = await client.GetVideoAsync(video);
+                byte[] bytes = await client.GetVideoBytesAsync(video);
                 Console.WriteLine($"Video {video.Id} bytes: {bytes.Length}");
                 // await client.DeleteVideoAsync(video);
             }

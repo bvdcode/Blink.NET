@@ -103,6 +103,8 @@ await File.WriteAllBytesAsync($"{video.Id}.mp4", data);
 - UniqueId (string)
   A unique identifier for the device/client that helps avoid repeated PIN verification. By default generated as a Guid.
 
+> Note: If you don't set this property, a new GUID will be generated each time you create a BlinkClient instance. This may lead to frequent requests for PIN verification, as the server treats each new GUID as a new device. To minimize the need for repeated PIN confirmations, it's recommended to set UniqueId to a consistent value (like a fixed GUID or a hash of your email) that remains the same across sessions.
+
 ## Brief API overview
 
 - Task<LoginResult> AuthorizeAsync(string email, string password, bool reauth = true)

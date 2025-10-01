@@ -271,7 +271,22 @@ namespace Blink
                     return await response.Content.ReadAsByteArrayAsync();
                 }
             }
-            throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response?.ReasonPhrase ?? "Unknown Error"}. Please create an issue if you see this error.");
+
+            // DEBUG: try to read response content for better error message if not video/mp4
+            string responseContent = "No response";
+            if (response != null)
+            {
+                try
+                {
+                    responseContent = await response.Content.ReadAsStringAsync();
+                }
+                catch (Exception ex)
+                {
+                    responseContent = "Failed to read response content: " + ex.Message;
+                }
+            }
+            throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response?.ReasonPhrase ?? "Unknown Error"}. " +
+                $"Please create an issue if you see this error. Content: " + responseContent);
         }
 
         /// <summary>

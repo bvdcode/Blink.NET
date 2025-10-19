@@ -38,42 +38,109 @@ Via PackageReference:
 
 ## Quick start
 
-Simple scenario: authorize, confirm PIN (if required), download clips from a single Sync Module.
+Simple scenario: login, complete 2FA, then download clips from a single Sync Module.
 
 ```csharp
 using Blink;
 
 var client = new BlinkClient();
 
-// Authorization (reauth:true emulates Blink app behavior)
-var auth = await client.AuthorizeAsync(email: "you@example.com", password: "YourPassword", reauth: true);
-
-// If the server requires client verification — enter PIN from SMS and confirm
-if (auth.Account.IsClientVerificationRequired)
+// 1) Login with email/password
+bool okLogin = await client.TryLoginAsync("you@example.com", "YourPassword");
+if (!okLogin)
 {
-        Console.Write("Enter PIN: ");
-        var code = Console.ReadLine();
-        await client.VerifyPinAsync(code);
+  throw new Exception("Wrong email or password");
 }
 
-// Get clips from a single Sync Module (throws if there are multiple modules)
+// 2) Enter and verify 2FA code
+Console.Write("Enter 2FA code: ");
+var code = Console.ReadLine() ?? string.Empty;
+bool ok2FA = await client.TryVerifyPinAsync(code);
+if (!ok2FA)
+{
+  throw new Exception("Invalid 2FA code");
+}
+
+// 3) Get clips from a single Sync Module (throws if more than one module exists)
 var videos = await client.GetVideosFromSingleModuleAsync();
 
-// Download the first clip as bytes
+// 4) Download the first clip as bytes
 var first = videos.First();
 byte[] bytes = await client.GetVideoBytesAsync(first);
 File.WriteAllBytes($"{first.Id}.mp4", bytes);
 ```
 
-## Step-by-step usage
+### Quick start (with Serilog and refresh token)
 
-1. Authorization and, if necessary, PIN confirmation:
+Use a two-stage flow: first login with email/password and complete 2FA to obtain a refresh token; then reuse the refresh token on subsequent runs to skip 2FA.
 
 ```csharp
-var auth = await client.AuthorizeAsync(email, password, reauth: true);
-if (auth.Account.IsClientVerificationRequired)
+using Serilog;
+using Blink;
+
+Log.Logger = new LoggerConfiguration()
+  .MinimumLevel.Debug()
+  .WriteTo.Console()
+  .CreateLogger();
+
+var client = new BlinkClient();
+
+// 1) First-time login + 2FA to get refresh token
+bool okLogin = await client.TryLoginAsync(email, password);
+if (!okLogin)
 {
-        await client.VerifyPinAsync(pinFromSms);
+  Log.Error("Wrong email or password");
+  return;
+}
+
+Log.Information("Enter 2FA code:");
+while (true)
+{
+  string code = Console.ReadLine() ?? string.Empty;
+  if (string.IsNullOrWhiteSpace(code))
+  {
+    Log.Warning("Code cannot be empty. Please enter the 2FA code:");
+    continue;
+  }
+  bool ok2FA = await client.TryVerifyPinAsync(code);
+  if (ok2FA)
+  {
+    Log.Information("2FA verification successful.");
+    break;
+  }
+  Log.Error("Invalid 2FA code. Please try again:");
+}
+
+Log.Information("Save this refresh token for future use: {RefreshToken}", client.RefreshToken);
+
+// 2) Subsequent runs — login with refresh token
+bool okRefresh = await client.TryLoginWithRefreshTokenAsync(refreshTokenFromStore);
+if (!okRefresh)
+{
+  Log.Error("Failed to refresh token");
+  return;
+}
+
+var dashboard = await client.GetDashboardAsync();
+Log.Information("Dashboard retrieved. Modules count: {Count}", dashboard.SyncModules.Length);
+```
+
+## Step-by-step usage
+
+1. Login and, if necessary, PIN confirmation:
+
+```csharp
+bool okLogin = await client.TryLoginAsync(email, password);
+if (!okLogin)
+{
+  // invalid credentials
+  return;
+}
+bool ok2FA = await client.TryVerifyPinAsync(pinFromSms);
+if (!ok2FA)
+{
+  // invalid/expired code
+  return;
 }
 ```
 
@@ -98,22 +165,26 @@ await File.WriteAllBytesAsync($"{video.Id}.mp4", data);
 ## Client settings
 
 - GeneralSleepTime (int, default 3500 ms)
-  Small delay between requests. Without it the server may sometimes return an empty response. You can reduce or disable it if your environment is stable.
+  Small delay between requests. Without it the server may sometimes return an empty response. You can reduce or disable it if your environment is stable. For background jobs, consider higher values (e.g., 5–10 seconds) to improve reliability.
 
-- UniqueId (string)
-  A unique identifier for the device/client that helps avoid repeated PIN verification. By default generated as a Guid.
+Token handling:
 
-> Note: If you don't set this property, a new GUID will be generated each time you create a BlinkClient instance. This may lead to frequent requests for PIN verification, as the server treats each new GUID as a new device. To minimize the need for repeated PIN confirmations, it's recommended to set UniqueId to a consistent value (like a fixed GUID or a hash of your email) that remains the same across sessions.
+- RefreshToken (string?) — populated after successful 2FA. Store it securely and use `TryLoginWithRefreshTokenAsync` to skip 2FA on subsequent runs.
 
 ## Brief API overview
 
-- Task<LoginResult> AuthorizeAsync(string email, string password, bool reauth = true)
-- Task VerifyPinAsync(string code)
 - Task<Dashboard> GetDashboardAsync()
 - Task<IEnumerable<BlinkVideoInfo>> GetVideosFromModuleAsync(SyncModule module)
 - Task<IEnumerable<BlinkVideoInfo>> GetVideosFromSingleModuleAsync()
 - Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 3)
 - Task DeleteVideoAsync(BlinkVideoInfo video)
+
+Login/token flows:
+
+- Task<bool> TryLoginAsync(string email, string password)
+- Task<bool> TryVerifyPinAsync(string code)
+- Task<bool> TryLoginWithRefreshTokenAsync(string refreshToken)
+- string? RefreshToken { get; }
 
 See models and exceptions in `Sources/Blink/Models` and `Sources/Blink/Exceptions`.
 

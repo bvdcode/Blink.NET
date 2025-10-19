@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Linq;
+using System.Net;
 using Blink.Models;
 using System.Net.Http;
 using Blink.Exceptions;
-using System.Reflection;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -13,13 +12,8 @@ namespace Blink
     /// <summary>
     /// Blink client class implementing Blink API
     /// </summary>
-    public class BlinkClient : IBlinkClient
+    public partial class BlinkClient : IBlinkClient
     {
-        /// <summary>
-        /// Unique ID to avoid reauthorization by pin code, for example: "a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6" (<see cref="Guid.NewGuid()"/>)
-        /// </summary>
-        public string UniqueId { get; set; } = Guid.NewGuid().ToString();
-
         /// <summary>
         /// For some reason, their server returns empty response without this delay.
         /// You can control this delay by setting this property.
@@ -27,133 +21,27 @@ namespace Blink
         /// </summary>
         public int GeneralSleepTime { get; set; } = 3500;
 
-        private int? _clientId;
+        /// <summary>
+        /// Gets the refresh token associated with the last login result.
+        /// Save this token to reuse it for future logins without needing to provide email and password again.
+        /// Null if not logged in.
+        /// </summary>
+        public string? RefreshToken => _lastLoginResult?.RefreshToken;
+
+        private string? _tier;
+        private string? _email;
         private int? _accountId;
+        private string? _password;
         private HttpClient? _http;
-
-
-        /// <summary>
-        /// Authorize with email and password provided in constructor.
-        /// </summary>
-        /// <param name="email">Email address</param>
-        /// <param name="password">Password</param>
-        /// <param name="reauth">Set to true if you already authorized with pin code and want to reauthorize. This is from Blink app behavior.</param>
-        /// <returns><see cref="LoginResult"/> object with authorization data</returns>
-        /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
-        /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
-        /// <exception cref="BlinkClientException">Thrown when no content is returned</exception>
-        public async Task<LoginResult> AuthorizeAsync(string email, string password, bool reauth = true)
-        {
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                throw new BlinkClientException("Email is required to authorize but not provided");
-            }
-            if (string.IsNullOrWhiteSpace(password))
-            {
-                throw new BlinkClientException("Password is required to authorize but not provided");
-            }
-
-            string clientName = Assembly.GetEntryAssembly().GetName().Name + "_v" + Assembly.GetEntryAssembly().GetName().Version;
-            var body = new
-            {
-                unique_id = UniqueId,
-                email,
-                password,
-                client_name = clientName,
-                reauth = reauth ? "true" : "false",
-
-                // Disabled optional parameters - it works without them for now
-                //app_version = "",
-                //client_type = "",
-                //device_identifier = "Amazon ",
-                //notification_key = "",
-                //os_version = "",
-            };
-            const string _baseUrl = "https://rest-prod.immedia-semi.com";
-            _http = CreateHttpClient(_baseUrl);
-            var httpClient = GetHttpClient();
-            var response = await httpClient.PostAsJsonAsync("/api/v5/account/login", body);
-            if (!response.IsSuccessStatusCode)
-            {
-                // if has content, try to read error message
-                var error = await response.Content.ReadAsStringAsync();
-                if (!string.IsNullOrWhiteSpace(error))
-                {
-                    throw new BlinkClientException($"Failed to authorize - {response.StatusCode} ({response.ReasonPhrase}) - {error}");
-                }
-                throw new BlinkClientException($"Failed to authorize - {response.StatusCode} ({response.ReasonPhrase})");
-            }
-            var loginResult = await response.Content.ReadFromJsonAsync<LoginResult>()
-                ?? throw new BlinkClientException("Failed to authorize - no content");
-            if (!string.IsNullOrWhiteSpace(loginResult.Account.Tier) && !string.IsNullOrWhiteSpace(loginResult.Auth.Token))
-            {
-                string baseUrl = $"https://rest-{loginResult.Account.Tier}.immedia-semi.com";
-                _http = CreateHttpClient(baseUrl, loginResult.Auth.Token);
-            }
-            else
-            {
-                throw new BlinkClientException("Failed to authorize - no token or tier in response");
-            }
-            _accountId = loginResult.Account.AccountId;
-            _clientId = loginResult.Account.ClientId;
-            if (_accountId == null || _clientId == null)
-            {
-                throw new BlinkClientException("Failed to authorize - no account ID or client ID in response");
-            }
-            return loginResult;
-        }
-
-        private HttpClient CreateHttpClient(string baseUrl, string? token = "")
-        {
-            if (string.IsNullOrWhiteSpace(baseUrl))
-            {
-                throw new BlinkClientException("Base URL is required to authorize");
-            }
-            _http = new HttpClient()
-            {
-                BaseAddress = new Uri(baseUrl)
-            };
-            string appBuild = "ANDROID_28746173";
-            string userAgent = "35.1" + appBuild;
-            _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
-            _http.DefaultRequestHeaders.TryAddWithoutValidation("APP-BUILD", appBuild);
-            _http.DefaultRequestHeaders.TryAddWithoutValidation("LOCALE", "en_US");
-            _http.DefaultRequestHeaders.TryAddWithoutValidation("X-Blink-Time-Zone", "UTC");
-            if (!string.IsNullOrWhiteSpace(token))
-            {
-                _http.DefaultRequestHeaders.TryAddWithoutValidation("TOKEN-AUTH", token);
-            }
-            return _http;
-        }
-
-        /// <summary>
-        /// Verify pin code from text message received after authorization. You'll receive the code to your phone number.
-        /// </summary>
-        /// <param name="code">Pin code from text message</param>
-        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
-        /// <exception cref="BlinkClientException">Thrown when pin verification fails</exception>
-        public async Task VerifyPinAsync(string code)
-        {
-            if (_accountId == null)
-            {
-                throw new BlinkClientException("Account ID is required to verify pin");
-            }
-            if (_clientId == null)
-            {
-                throw new BlinkClientException("Client ID is required to verify pin");
-            }
-            string url = $"/api/v4/account/{_accountId}/client/{_clientId}/pin/verify";
-            var body = new
-            {
-                pin = code
-            };
-            var httpClient = GetHttpClient();
-            var response = await httpClient.PostAsJsonAsync(url, body);
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new BlinkClientException("Failed to verify pin - " + response.ReasonPhrase);
-            }
-        }
+        private LoginResult? _lastLoginResult;
+        private const string Model = "Pixel 8 Pro";
+        private const string AppVersion = "48.1";
+        private const string OsVersion = "14";
+        private const string ClientType = "Android";
+        private const string Manufacturer = "Google";
+        private const string AppBuild = "ANDROID_29312391";
+        //private const string AppVersionFull = "blink-48.1-0b43786c1-hotfix-48.1_fullRelease";
+        private readonly string UserAgent = $"Blink/{AppVersion} ({Manufacturer} {Model}; {ClientType} {OsVersion})";
 
         /// <summary>
         /// Get dashboard data.
@@ -168,7 +56,7 @@ namespace Blink
                 throw new BlinkClientException("Not authorized");
             }
             string url = $"/api/v3/accounts/{_accountId}/homescreen";
-            var httpClient = GetHttpClient();
+            var httpClient = await GetHttpClientAsync();
             var response = await httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
@@ -179,148 +67,195 @@ namespace Blink
         }
 
         /// <summary>
-        /// Get videos from specified module. Get modules from <see cref="GetDashboardAsync"/> method - <see cref="Dashboard.SyncModules"/>.
+        /// Attempts to log in using the provided refresh token.
         /// </summary>
-        /// <returns>Collection of <see cref="BlinkVideoInfo"/> objects with video data</returns>
-        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
-        /// <exception cref="BlinkClientException">Thrown when failed to get videos</exception>
-        public async Task<IEnumerable<BlinkVideoInfo>> GetVideosFromModuleAsync(SyncModule module)
+        /// <param name="refreshToken">The refresh token used to authenticate the user. Cannot be null, empty, or whitespace.</param>
+        /// <returns><see langword="true"/> if the login attempt is successful and the refresh token is valid;  <see
+        /// langword="false"/> if the refresh token is invalid or unauthorized.</returns>
+        /// <exception cref="BlinkClientException">Thrown if <paramref name="refreshToken"/> is null, empty, or whitespace, or if the login attempt fails due
+        /// to an unexpected error.</exception>
+        public async Task<bool> TryLoginWithRefreshTokenAsync(string refreshToken)
         {
-            string url = $"/api/v1/accounts/{_accountId}/networks/{module.NetworkId}/" +
-                $"sync_modules/{module.Id}/local_storage/manifest/request";
-            await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
-            var httpClient = GetHttpClient();
-            var result = await httpClient.PostAsync(url, null);
-            if (!result.IsSuccessStatusCode)
+            if (string.IsNullOrWhiteSpace(refreshToken))
             {
-                throw new BlinkClientException("Failed to get videos - " + result.ReasonPhrase);
+                throw new BlinkClientException("Refresh token is required to authorize but not provided");
             }
-            var manifestData = await result.Content.ReadFromJsonAsync<ManifestData>()
-                ?? throw new BlinkClientException("Failed to get videos - no content");
-            url += $"/{manifestData.Id}";
-            await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
-            var response = await httpClient.GetAsync(url);
-            var videoResponse = await response.Content.ReadFromJsonAsync<VideoResponse>()
-                ?? throw new BlinkClientException("Failed to get videos - no content");
-            foreach (var video in videoResponse.Videos)
+            var response = await SendAuthRequestAsync(refreshToken);
+            string content = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
             {
-                video.NetworkId = module.NetworkId;
-                video.ModuleId = module.Id;
-                video.ManifestId = videoResponse.ManifestId;
+                throw new BlinkClientException($"Failed to verify pin - {response.StatusCode} ({response.ReasonPhrase}) - {content}");
             }
-            return videoResponse.Videos;
+            _lastLoginResult = System.Text.Json.JsonSerializer.Deserialize<LoginResult>(content)
+                ?? throw new BlinkClientException("Failed to verify pin - no content");
+            _lastLoginResult.ValidUntil = DateTime.UtcNow.AddSeconds(_lastLoginResult.ExpiresInSeconds);
+            var tier = await GetTierInfoAsync();
+            _accountId = tier.AccountId;
+            _tier = tier.Tier;
+            return true;
         }
 
         /// <summary>
-        /// Get videos from single module (the first one in the dashboard). Throws exception if more than one module found.
+        /// Attempts to log in using the specified email and password.
         /// </summary>
-        /// <returns>Collection of <see cref="BlinkVideoInfo"/> objects with video data</returns>
-        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
-        /// <exception cref="BlinkClientException">Thrown when failed to get videos</exception>
-        /// <exception cref="BlinkClientException">Thrown when more than one module found</exception>
-        public async Task<IEnumerable<BlinkVideoInfo>> GetVideosFromSingleModuleAsync()
+        /// <remarks>This method sends a login request to the Blink API and evaluates the response to
+        /// determine the outcome.  If the response indicates a precondition failure, the method returns <see
+        /// langword="true"/>.  If the response indicates unauthorized access, the method returns <see
+        /// langword="false"/>.  For all other response statuses, a <see cref="BlinkClientException"/> is
+        /// thrown.</remarks>
+        /// <param name="email">The email address associated with the account. Cannot be null, empty, or whitespace.</param>
+        /// <param name="password">The password for the account. Cannot be null, empty, or whitespace.</param>
+        /// <returns><see langword="true"/> if the login attempt requires additional preconditions to be met;  <see
+        /// langword="false"/> if the login attempt fails due to invalid credentials.</returns>
+        /// <exception cref="BlinkClientException">Thrown if <paramref name="email"/> or <paramref name="password"/> is null, empty, or whitespace,  or if an
+        /// unexpected error occurs during the login process.</exception>
+        public async Task<bool> TryLoginAsync(string email, string password)
         {
-            if (_accountId == null)
+            if (string.IsNullOrWhiteSpace(email))
             {
-                throw new BlinkClientException("Not authorized");
+                throw new BlinkClientException("Email is required to authorize but not provided");
             }
-            var dashboard = await GetDashboardAsync();
-            if (dashboard.SyncModules.Length > 1)
+            if (string.IsNullOrWhiteSpace(password))
             {
-                throw new BlinkClientException("More than one sync module found. Use GetVideosAsync() instead.");
+                throw new BlinkClientException("Password is required to authorize but not provided");
             }
-            var module = dashboard.SyncModules.SingleOrDefault()
-                ?? throw new BlinkClientException("No sync modules found");
-            return await GetVideosFromModuleAsync(module);
+            _email = email;
+            _password = password;
+            var response = await SendAuthRequestAsync(email, password);
+            if (response.StatusCode == HttpStatusCode.PreconditionFailed)
+            {
+                return true;
+            }
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return false;
+            }
+            string content = await response.Content.ReadAsStringAsync();
+            throw new BlinkClientException($"Failed to authorize - {response.StatusCode} ({response.ReasonPhrase}) - {content}");
         }
 
         /// <summary>
-        /// Get video file as byte array.
+        /// Attempts to verify the provided PIN code for authentication.
         /// </summary>
-        /// <param name="video"><see cref="BlinkVideoInfo"/> object with video data</param>
-        /// <param name="tryCount">Number of tries to get video</param>
-        /// <returns>Video as byte array</returns>
-        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
-        /// <exception cref="BlinkClientException">Thrown when video data is not valid. Please create an issue if you see this error.</exception>
-        public async Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 3)
+        /// <remarks>Before calling this method, ensure that <see cref="TryLoginAsync"/> has been
+        /// successfully called to initialize the email and password.</remarks>
+        /// <param name="code">The PIN code to verify. This value cannot be null, empty, or consist only of whitespace.</param>
+        /// <returns><see langword="true"/> if the PIN code is successfully verified; <see langword="false"/> if the PIN code is
+        /// invalid or expired.</returns>
+        /// <exception cref="BlinkClientException">Thrown if <paramref name="code"/> is null, empty, or whitespace. Thrown if <see cref="TryLoginAsync"/> has
+        /// not been called prior to this method. Thrown if the server responds with an error other than an invalid or
+        /// expired PIN code.</exception>
+        public async Task<bool> TryVerifyPinAsync(string code)
         {
-            if (_accountId == null)
+            if (string.IsNullOrWhiteSpace(code))
             {
-                throw new BlinkClientException("Not authorized");
+                throw new BlinkClientException("Pin code is required to verify pin but not provided");
             }
-            if (video.NetworkId == 0 || video.ModuleId == 0 || string.IsNullOrWhiteSpace(video.ManifestId))
+            if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
             {
-                throw new BlinkClientException("Video data is not valid");
+                throw new BlinkClientException("Call TryLoginAsync before verifying pin");
             }
-            string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
-                $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/request/{video.Id}";
-
-            int count = 0;
-            string contentType = string.Empty;
-            HttpResponseMessage? response = null;
-            var httpClient = GetHttpClient();
-            while (count++ < tryCount)
+            var response = await SendAuthRequestAsync(_email, _password, code);
+            string content = await response.Content.ReadAsStringAsync();
+            if (response.StatusCode == HttpStatusCode.BadRequest && content.Equals("Verification Code is invalid or expired"))
             {
-                await httpClient.PostAsync(url, null);
-                await Task.Delay(GeneralSleepTime);
-
-                response = await httpClient.GetAsync(url);
-                contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
-                if (contentType == "video/mp4")
-                {
-                    return await response.Content.ReadAsByteArrayAsync();
-                }
+                return false;
             }
-
-            // DEBUG: try to read response content for better error message if not video/mp4
-            string responseContent = "No response";
-            if (response != null)
+            if (!response.IsSuccessStatusCode)
             {
-                try
-                {
-                    responseContent = await response.Content.ReadAsStringAsync();
-                }
-                catch (Exception ex)
-                {
-                    responseContent = "Failed to read response content: " + ex.Message;
-                }
+                throw new BlinkClientException($"Failed to verify pin - {response.StatusCode} ({response.ReasonPhrase}) - {content}");
             }
-            throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response?.ReasonPhrase ?? "Unknown Error"}. " +
-                $"Please create an issue if you see this error. Content: " + responseContent);
+            _lastLoginResult = System.Text.Json.JsonSerializer.Deserialize<LoginResult>(content)
+                ?? throw new BlinkClientException("Failed to verify pin - no content");
+            _lastLoginResult.ValidUntil = DateTime.UtcNow.AddSeconds(_lastLoginResult.ExpiresInSeconds);
+            var tier = await GetTierInfoAsync();
+            _accountId = tier.AccountId;
+            _tier = tier.Tier;
+            return true;
         }
 
-        /// <summary>
-        /// Delete video from Blink camera.
-        /// </summary>
-        /// <param name="video"><see cref="BlinkVideoInfo"/> object with video data</param>
-        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
-        public async Task DeleteVideoAsync(BlinkVideoInfo video)
+        private async Task<TierInfo> GetTierInfoAsync()
         {
-            if (_accountId == null)
-            {
-                throw new BlinkClientException("Not authorized");
-            }
-
-            if (video.NetworkId == 0 || video.ModuleId == 0 || string.IsNullOrWhiteSpace(video.ManifestId))
-            {
-                throw new BlinkClientException("Video data is not valid");
-            }
-            string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
-                $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/delete/{video.Id}";
-            var httpClient = GetHttpClient();
-            await Task.Delay(GeneralSleepTime);
-            var result = await httpClient.PostAsync(url, null);
-            if (!result.IsSuccessStatusCode)
-            {
-                string error = await result.Content.ReadAsStringAsync();
-                throw new BlinkClientException($"Failed to delete video {video.Id} - {result.ReasonPhrase} - {error}");
-            }
-            result.EnsureSuccessStatusCode();
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+            httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _lastLoginResult?.AccessToken);
+            const string url = "https://rest-prod.immedia-semi.com/api/v1/users/tier_info";
+            return await httpClient.GetFromJsonAsync<TierInfo>(url)
+                ?? throw new BlinkClientException("Failed to get tier info - no content");
         }
 
-        private HttpClient GetHttpClient()
+        private async Task<HttpResponseMessage> SendAuthRequestAsync(string refreshToken)
         {
-            return _http ?? throw new BlinkClientException("Not authorized");
+            const string authUrl = "https://api.oauth.blink.com/oauth/token";
+            var formDataDict = new Dictionary<string, string>
+            {
+                { "refresh_token", refreshToken },
+                { "grant_type", "refresh_token" },
+                { "client_id", ClientType.ToLower() },
+                { "scope", "client" },
+            };
+            var formData = new FormUrlEncodedContent(formDataDict);
+            using HttpClient http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+            return await http.PostAsync(authUrl, formData);
+        }
+
+        private async Task<HttpResponseMessage> SendAuthRequestAsync(string email, string password, string? mfaCode = null)
+        {
+            const string authUrl = "https://api.oauth.blink.com/oauth/token";
+            var formDataDict = new Dictionary<string, string>
+            {
+                { "username", email },
+                { "password", password },
+                { "grant_type", "password" },
+                { "client_id", ClientType.ToLower() },
+                { "scope", "client" },
+            };
+            var formData = new FormUrlEncodedContent(formDataDict);
+            using HttpClient http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+            if (!string.IsNullOrWhiteSpace(mfaCode))
+            {
+                http.DefaultRequestHeaders.TryAddWithoutValidation("2fa-code", mfaCode);
+            }
+            return await http.PostAsync(authUrl, formData);
+        }
+
+        private async Task<HttpClient> GetHttpClientAsync()
+        {
+            if (string.IsNullOrWhiteSpace(_tier))
+            {
+                throw new BlinkClientException("You have to login first");
+            }
+            if (_http != null)
+            {
+                return _http;
+            }
+            if (string.IsNullOrWhiteSpace(_lastLoginResult?.AccessToken))
+            {
+                throw new BlinkClientException("You have to login first");
+            }
+            if (_lastLoginResult.ValidUntil <= DateTime.UtcNow.AddMinutes(5))
+            {
+                await TryLoginWithRefreshTokenAsync(_lastLoginResult.RefreshToken);
+            }
+            _http = new HttpClient()
+            {
+                BaseAddress = new Uri($"https://rest-{_tier}.immedia-semi.com")
+            };
+            const string appBuild = AppBuild;
+            const string manufacturer = Manufacturer;
+            const string androidVersion = OsVersion;
+            string userAgent = $"Blink/{AppVersion} ({manufacturer} {Model}; {ClientType} {androidVersion})";
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("APP_BUILD", appBuild);
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("LOCALE", "en_US");
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("X-Blink-Time-Zone", "UTC");
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("Cache-Control", "no-cache");
+            _http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _lastLoginResult.AccessToken);
+            return _http;
         }
     }
 }

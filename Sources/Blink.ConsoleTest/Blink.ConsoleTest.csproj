@@ -8,10 +8,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\Blink\Blink.csproj" />
-		<None Update="secrets.json">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
 	</ItemGroup>
 
 </Project>

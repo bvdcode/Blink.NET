@@ -18,16 +18,11 @@ namespace Blink
         int GeneralSleepTime { get; set; }
 
         /// <summary>
-        /// Authorize with email and password provided in constructor.
+        /// Gets the refresh token associated with the last login result.
+        /// Save this token to reuse it for future logins without needing to provide email and password again.
+        /// Null if not logged in.
         /// </summary>
-        /// <param name="email">Email address</param>
-        /// <param name="password">Password</param>
-        /// <param name="reauth">Set to true if you already authorized with pin code and want to reauthorize. This is from Blink app behavior.</param>
-        /// <returns><see cref="LoginResult"/> object with authorization data</returns>
-        /// <exception cref="BlinkClientException">Thrown when email or password is not provided in constructor</exception>
-        /// <exception cref="BlinkClientException">Thrown when authorization fails</exception>
-        /// <exception cref="BlinkClientException">Thrown when no content is returned</exception>
-        Task<LoginResult> AuthorizeAsync(string email, string password, bool reauth = true);
+        string? RefreshToken { get; }
 
         /// <summary>
         /// Deletes a specified video asynchronously.
@@ -68,10 +63,42 @@ namespace Blink
         Task<IEnumerable<BlinkVideoInfo>> GetVideosFromModuleAsync(SyncModule module);
 
         /// <summary>
-        /// Verifies a specified PIN code asynchronously.
+        /// Attempts to verify the provided PIN code for authentication.
         /// </summary>
-        /// <param name="code">The PIN code to verify.</param>
-        /// <returns>A task that represents the asynchronous verification operation.</returns>
-        Task VerifyPinAsync(string code);
+        /// <remarks>Before calling this method, ensure that <see cref="TryLoginAsync"/> has been
+        /// successfully called to initialize the email and password.</remarks>
+        /// <param name="code">The PIN code to verify. This value cannot be null, empty, or consist only of whitespace.</param>
+        /// <returns><see langword="true"/> if the PIN code is successfully verified; <see langword="false"/> if the PIN code is
+        /// invalid or expired.</returns>
+        /// <exception cref="BlinkClientException">Thrown if <paramref name="code"/> is null, empty, or whitespace. Thrown if <see cref="TryLoginAsync"/> has
+        /// not been called prior to this method. Thrown if the server responds with an error other than an invalid or
+        /// expired PIN code.</exception>
+        Task<bool> TryVerifyPinAsync(string code);
+
+        /// <summary>
+        /// Attempts to log in using the specified email and password.
+        /// </summary>
+        /// <remarks>This method sends a login request to the Blink API and evaluates the response to
+        /// determine the outcome.  If the response indicates a precondition failure, the method returns <see
+        /// langword="true"/>.  If the response indicates unauthorized access, the method returns <see
+        /// langword="false"/>.  For all other response statuses, a <see cref="BlinkClientException"/> is
+        /// thrown.</remarks>
+        /// <param name="email">The email address associated with the account. Cannot be null, empty, or whitespace.</param>
+        /// <param name="password">The password for the account. Cannot be null, empty, or whitespace.</param>
+        /// <returns><see langword="true"/> if the login attempt requires additional preconditions to be met;  <see
+        /// langword="false"/> if the login attempt fails due to invalid credentials.</returns>
+        /// <exception cref="BlinkClientException">Thrown if <paramref name="email"/> or <paramref name="password"/> is null, empty, or whitespace,  or if an
+        /// unexpected error occurs during the login process.</exception>
+        Task<bool> TryLoginAsync(string email, string password);
+
+        /// <summary>
+        /// Attempts to log in using the provided refresh token.
+        /// </summary>
+        /// <param name="refreshToken">The refresh token used to authenticate the user. Cannot be null, empty, or whitespace.</param>
+        /// <returns><see langword="true"/> if the login attempt is successful and the refresh token is valid;  <see
+        /// langword="false"/> if the refresh token is invalid or unauthorized.</returns>
+        /// <exception cref="BlinkClientException">Thrown if <paramref name="refreshToken"/> is null, empty, or whitespace, or if the login attempt fails due
+        /// to an unexpected error.</exception>
+        Task<bool> TryLoginWithRefreshTokenAsync(string refreshToken);
     }
 }

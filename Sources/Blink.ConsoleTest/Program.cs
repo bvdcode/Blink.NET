@@ -1,39 +1,72 @@
-﻿using System.Text.Json;
+﻿using Serilog;
 
 namespace Blink.ConsoleTest
 {
     public class Program
     {
-        public static void Main()
+        public static async Task Main()
         {
-            Start().Wait();
+            const string email = "";
+            const string password = "";
+            const string refresh = "";
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Console()
+                .CreateLogger();
+
+            BlinkClient client = new();
+            await TestLoginFlowAsync(Log.Logger, client, email, password);
+            await TestRefreshFlowAsync(Log.Logger, client, refresh);
         }
 
-        private static async Task Start()
+        private static async Task TestLoginFlowAsync(ILogger logger, BlinkClient client, string email, string password)
         {
-            string json = File.ReadAllText("secrets.json");
-            var secrets = JsonSerializer.Deserialize<Secrets>(json)!;
-            BlinkClient client = new();
-            var authData = await client.AuthorizeAsync(secrets.Email, secrets.Password, reauth: true);
-
-            if (authData.Account.IsClientVerificationRequired)
+            bool isSuccessfulFirstAuth = await client.TryLoginAsync(email, password);
+            if (!isSuccessfulFirstAuth)
             {
-                string code = Console.ReadLine() ?? throw new Exception("No code entered");
-                await client.VerifyPinAsync(code);
-                Console.WriteLine("Auth data: " + authData.ToJson());
+                logger.Error("Wrong email or password");
+                return;
             }
 
-            var videos = await client.GetVideosFromSingleModuleAsync();
-            int count = videos.Count();
+            // wait for user input for 2FA code
+            logger.Information("Enter 2FA code:");
 
-            Console.WriteLine("Videos count: " + count);
-
-            foreach (var video in videos)
+            while (true)
             {
-                byte[] bytes = await client.GetVideoBytesAsync(video);
-                Console.WriteLine($"Video {video.Id} bytes: {bytes.Length}");
-                // await client.DeleteVideoAsync(video);
+                string code = Console.ReadLine() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    logger.Warning("Code cannot be empty. Please enter the 2FA code:");
+                    continue;
+                }
+                bool isSuccessful2FA = await client.TryVerifyPinAsync(code);
+                if (isSuccessful2FA)
+                {
+                    logger.Information("2FA verification successful.");
+                    break;
+                }
+                else
+                {
+                    logger.Error("Invalid 2FA code. Please try again:");
+                }
             }
+            var dashboard = await client.GetDashboardAsync();
+            logger.Information("Dashboard retrieved. Modules count: {Count}", dashboard.SyncModules.Length);
+            logger.Information("Save this refresh token for future use: {RefreshToken}", client.RefreshToken);
+        }
+
+        private static async Task TestRefreshFlowAsync(ILogger logger, BlinkClient client, string refresh)
+        {
+            bool isSuccessfulRefresh = await client.TryLoginWithRefreshTokenAsync(refresh);
+            if (!isSuccessfulRefresh)
+            {
+                logger.Error("Failed to refresh token");
+                return;
+            }
+            logger.Information("Token refresh successful.");
+            var dashboard = await client.GetDashboardAsync();
+            logger.Information("Dashboard retrieved. Modules count: {Count}", dashboard.SyncModules.Length);
         }
     }
 }

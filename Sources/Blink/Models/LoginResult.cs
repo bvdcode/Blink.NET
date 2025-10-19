@@ -1,56 +1,26 @@
-﻿using System.Text.Json;
+﻿using System;
 using System.Text.Json.Serialization;
 
 namespace Blink.Models
 {
-    /// <summary>
-    /// Login result
-    /// </summary>
-    public class LoginResult
+    internal class LoginResult
     {
-        /// <summary>
-        /// Account information
-        /// </summary>
-        [JsonPropertyName("account")]
-        public Account Account { get; set; } = null!;
+        [JsonPropertyName("access_token")]
+        public string AccessToken { get; set; } = null!;
 
-        /// <summary>
-        /// Authentification information
-        /// </summary>
-        [JsonPropertyName("auth")]
-        public Auth Auth { get; set; } = null!;
+        [JsonPropertyName("expires_in")]
+        public int ExpiresInSeconds { get; set; }
 
-        /// <summary>
-        /// Phone information
-        /// </summary>
-        [JsonPropertyName("phone")]
-        public Phone Phone { get; set; } = null!;
+        [JsonPropertyName("refresh_token")]
+        public string RefreshToken { get; set; } = null!;
 
-        /// <summary>
-        /// Lockout time remaining, if lockout is active
-        /// </summary>
-        [JsonPropertyName("lockout_time_remaining")]
-        public int LockoutTimeRemaining { get; set; }
+        [JsonPropertyName("scope")]
+        public string Scope { get; set; } = null!;
 
-        /// <summary>
-        /// Force password reset flag
-        /// </summary>
-        [JsonPropertyName("force_password_reset")]
-        public bool ForcePasswordReset { get; set; }
+        [JsonPropertyName("token_type")]
+        public string TokenType { get; set; } = null!;
 
-        /// <summary>
-        /// Allow PIN resend seconds
-        /// </summary>
-        [JsonPropertyName("allow_pin_resend_seconds")]
-        public int AllowPinResendSeconds { get; set; }
-
-        /// <summary>
-        /// Convert to JSON string
-        /// </summary>
-        /// <returns>JSON string</returns>
-        public string ToJson()
-        {
-            return JsonSerializer.Serialize(this);
-        }
+        [JsonIgnore]
+        public DateTime ValidUntil { get; set; }
     }
 }

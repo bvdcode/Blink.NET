@@ -75,7 +75,7 @@ namespace Blink
         /// <returns>Video as byte array</returns>
         /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
         /// <exception cref="BlinkClientException">Thrown when video data is not valid. Please create an issue if you see this error.</exception>
-        public async Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 3)
+        public async Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 5)
         {
             if (_accountId == null)
             {
@@ -94,12 +94,12 @@ namespace Blink
             var httpClient = await GetHttpClientAsync();
             while (count++ < tryCount)
             {
-                await httpClient.PostAsync(url, null);
                 await Task.Delay(GeneralSleepTime);
+                await httpClient.PostAsync(url, null);
 
                 response = await httpClient.GetAsync(url);
                 contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
-                if (contentType == "video/mp4")
+                if (contentType.StartsWith("video/"))
                 {
                     return await response.Content.ReadAsByteArrayAsync();
                 }

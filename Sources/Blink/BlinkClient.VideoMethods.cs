@@ -11,7 +11,6 @@ namespace Blink
 {
     public partial class BlinkClient
     {
-
         /// <summary>
         /// Get videos from specified module. Get modules from <see cref="GetDashboardAsync"/> method - <see cref="Dashboard.SyncModules"/>.
         /// </summary>

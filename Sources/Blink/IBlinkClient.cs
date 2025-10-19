@@ -1,5 +1,6 @@
 ﻿using Blink.Models;
 using Blink.Exceptions;
+using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -10,6 +11,13 @@ namespace Blink
     /// </summary>
     public interface IBlinkClient
     {
+        /// <summary>
+        /// Occurs when a new refresh token is issued by the Blink API.
+        /// Subscribe to this event to persist the latest token for future runs.
+        /// Raised after a successful 2FA verification or refresh-token login/rotation.
+        /// </summary>
+        event Action<string>? OnTokenRefreshed;
+
         /// <summary>
         /// Gets or sets the general sleep time in milliseconds.
         /// This delay is required to prevent the server from returning an empty response.

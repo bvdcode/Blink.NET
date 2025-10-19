@@ -14,6 +14,9 @@ namespace Blink
     /// </summary>
     public partial class BlinkClient : IBlinkClient
     {
+        /// <inheritdoc />
+        public event Action<string>? OnTokenRefreshed;
+        
         /// <summary>
         /// For some reason, their server returns empty response without this delay.
         /// You can control this delay by setting this property.
@@ -92,6 +95,10 @@ namespace Blink
             var tier = await GetTierInfoAsync();
             _accountId = tier.AccountId;
             _tier = tier.Tier;
+            if (!string.IsNullOrWhiteSpace(_lastLoginResult.RefreshToken))
+            {
+                OnTokenRefreshed?.Invoke(_lastLoginResult.RefreshToken);
+            }
             return true;
         }
 
@@ -171,6 +178,10 @@ namespace Blink
             var tier = await GetTierInfoAsync();
             _accountId = tier.AccountId;
             _tier = tier.Tier;
+            if (!string.IsNullOrWhiteSpace(_lastLoginResult.RefreshToken))
+            {
+                OnTokenRefreshed?.Invoke(_lastLoginResult.RefreshToken);
+            }
             return true;
         }
 
@@ -238,6 +249,7 @@ namespace Blink
             }
             if (_lastLoginResult.ValidUntil <= DateTime.UtcNow.AddMinutes(5))
             {
+                // Re-authenticate using the refresh token; if a new refresh token is issued, the event will be raised there.
                 await TryLoginWithRefreshTokenAsync(_lastLoginResult.RefreshToken);
             }
             _http = new HttpClient()

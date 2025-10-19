@@ -186,6 +186,15 @@ Login/token flows:
 - Task<bool> TryLoginWithRefreshTokenAsync(string refreshToken)
 - string? RefreshToken { get; }
 
+Events:
+
+- event Action<string>? OnTokenRefreshed — raised whenever a new refresh token is issued (after successful 2FA or token refresh). Subscribe to persist it:
+
+```csharp
+var client = new BlinkClient();
+client.OnTokenRefreshed += token => SaveRefreshToken(token);
+```
+
 See models and exceptions in `Sources/Blink/Models` and `Sources/Blink/Exceptions`.
 
 ## Sample console application from the repository

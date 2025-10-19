@@ -60,7 +60,7 @@ namespace Blink
             var dashboard = await GetDashboardAsync();
             if (dashboard.SyncModules.Length > 1)
             {
-                throw new BlinkClientException("More than one sync module found. Use GetVideosAsync() instead.");
+                throw new BlinkClientException("More than one sync module found. Use GetVideosFromModuleAsync(SyncModule module) instead.");
             }
             var module = dashboard.SyncModules.SingleOrDefault()
                 ?? throw new BlinkClientException("No sync modules found");

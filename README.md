@@ -224,6 +224,11 @@ dotnet run
 - Client verification (PIN via SMS) is often enabled. This is normal behavior.
 - The Blink API can be unstable without pauses between requests — use `GeneralSleepTime`.
 
+Note on clip IDs (observed behavior):
+
+- The IDs returned in the video list appear to be short‑lived session identifiers. In practice, fetching the binary clip by a previously listed ID may start failing with “file not found” after a short time window (approx. 10–20 minutes, based on observations; not officially documented).
+- Recommendation: process videos in small batches. Fetch a list, immediately download a subset, then re‑list before continuing to avoid stale IDs.
+
 ## Security
 
 - Do not store login/password in the repository. Use user secrets, environment variables, or encrypted stores.

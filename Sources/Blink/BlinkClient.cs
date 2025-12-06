@@ -85,6 +85,10 @@ namespace Blink
             }
             var response = await SendAuthRequestAsync(refreshToken);
             string content = await response.Content.ReadAsStringAsync();
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return false;
+            }
             if (!response.IsSuccessStatusCode)
             {
                 throw new BlinkClientException($"Failed to verify pin - {response.StatusCode} ({response.ReasonPhrase}) - {content}");

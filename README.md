@@ -6,7 +6,8 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/bvdcode/Blink.NET/badge)](https://www.codefactor.io/repository/github/bvdcode/Blink.NET)
 ![Repo size](https://img.shields.io/github/repo-size/bvdcode/Blink.NET)
 
-> Last actual issue: [#1147](https://github.com/fronzbot/blinkpy/issues/1147)
+> Last related issue: [#1147](https://github.com/fronzbot/blinkpy/issues/1147)
+> 
 > Here is no resolution for now
 
 # Blink.NET

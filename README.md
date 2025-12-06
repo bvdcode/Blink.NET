@@ -6,6 +6,8 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/bvdcode/Blink.NET/badge)](https://www.codefactor.io/repository/github/bvdcode/Blink.NET)
 ![Repo size](https://img.shields.io/github/repo-size/bvdcode/Blink.NET)
 
+> Last similar issue: [#1147](https://github.com/fronzbot/blinkpy/issues/1147)
+
 # Blink.NET
 
 A .NET library (netstandard2.1) for accessing local Blink camera storage: fetching the list of clips, downloading and deleting videos. Works on runtimes that support .NET Standard 2.1 (for example .NET 6/7/8/9, .NET Core 3.0+).

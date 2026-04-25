@@ -49,12 +49,36 @@ namespace Blink.ConsoleTest
 
             var dashboard = await client.GetDashboardAsync();
             logger.Information("Dashboard retrieved. Modules count: {Count}", dashboard.SyncModules.Length);
+
+            var networks = await client.GetNetworksAsync();
+            logger.Information("Networks retrieved: {Count}", networks.Summary.Count);
+
+            var notifications = await client.GetNotificationConfigurationAsync();
+            logger.Information("Notification flags retrieved: {Count}", notifications.Notifications.Count);
+
+            var cameraUsage = await client.GetCameraUsageAsync();
+            logger.Information("Camera usage networks retrieved: {Count}", cameraUsage.Networks.Length);
+
+            string downloadsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
+            Directory.CreateDirectory(downloadsDirectory);
+
             if (dashboard.SyncModules.Length > 0)
             {
                 try
                 {
-                    var localVideos = await client.GetVideosFromModuleAsync(dashboard.SyncModules[0]);
-                    logger.Information("Local videos listed from first module: {Count}", localVideos.Count());
+                    var localVideos = (await client.GetVideosFromModuleAsync(dashboard.SyncModules[0]))
+                        .OrderByDescending(video => video.CreatedAt)
+                        .ToList();
+                    logger.Information("Local videos listed from first module: {Count}", localVideos.Count);
+
+                    if (localVideos.Count > 0)
+                    {
+                        var localVideo = localVideos[0];
+                        byte[] localBytes = await client.GetVideoBytesAsync(localVideo);
+                        string localPath = Path.Combine(downloadsDirectory, $"local-{localVideo.Id}.mp4");
+                        await File.WriteAllBytesAsync(localPath, localBytes);
+                        logger.Information("Downloaded local video bytes: {Length}. Path: {Path}", localBytes.Length, localPath);
+                    }
                 }
                 catch (BlinkClientException ex)
                 {
@@ -65,6 +89,21 @@ namespace Blink.ConsoleTest
             var cloudVideos = (await client.GetCloudVideosAsync(maxPages: 5, includeDeleted: true)).ToList();
             int activeCloudCount = cloudVideos.Count(video => !video.IsDeleted);
             logger.Information("Cloud clips listed: {Count} (active: {ActiveCount})", cloudVideos.Count, activeCloudCount);
+
+            var firstActiveCloudVideo = cloudVideos
+                .Where(video => !video.IsDeleted)
+                .OrderByDescending(video => video.CreatedAt)
+                .FirstOrDefault();
+            if (firstActiveCloudVideo != null)
+            {
+                byte[] cloudBytes = await client.GetCloudVideoBytesAsync(firstActiveCloudVideo);
+                string cloudVideoId = string.IsNullOrWhiteSpace(firstActiveCloudVideo.Id)
+                    ? DateTime.UtcNow.ToString("yyyyMMddHHmmss")
+                    : firstActiveCloudVideo.Id;
+                string cloudPath = Path.Combine(downloadsDirectory, $"cloud-{cloudVideoId}.mp4");
+                await File.WriteAllBytesAsync(cloudPath, cloudBytes);
+                logger.Information("Downloaded cloud video bytes: {Length}. Path: {Path}", cloudBytes.Length, cloudPath);
+            }
         }
 
         private static async Task<bool> TryAuthorizeAsync(ILogger logger, BlinkClient client, ConsoleSecrets secrets)

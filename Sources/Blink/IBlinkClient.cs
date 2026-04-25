@@ -1,6 +1,7 @@
 ﻿using Blink.Models;
 using Blink.Exceptions;
 using System;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -50,6 +51,127 @@ namespace Blink
         /// </summary>
         /// <returns>A task that represents the asynchronous operation. The task result contains the dashboard information.</returns>
         Task<Dashboard> GetDashboardAsync();
+
+        /// <summary>
+        /// Retrieves all Blink networks summary.
+        /// </summary>
+        /// <returns>A task that represents the asynchronous operation. The task result contains network summary data.</returns>
+        Task<NetworkSummaryResponse> GetNetworksAsync();
+
+        /// <summary>
+        /// Retrieves network status for a specific network.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains network status.</returns>
+        Task<NetworkStatusResponse> GetNetworkStatusAsync(int networkId);
+
+        /// <summary>
+        /// Retrieves camera usage information for all networks.
+        /// </summary>
+        /// <returns>A task that represents the asynchronous operation. The task result contains camera usage.</returns>
+        Task<CameraUsageResponse> GetCameraUsageAsync();
+
+        /// <summary>
+        /// Retrieves cameras for a specific network.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains camera payload.</returns>
+        Task<Dictionary<string, JsonElement>> GetCamerasAsync(int networkId);
+
+        /// <summary>
+        /// Retrieves camera configuration payload.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="cameraId">Camera identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains camera configuration payload.</returns>
+        Task<Dictionary<string, JsonElement>> GetCameraInfoAsync(int networkId, int cameraId);
+
+        /// <summary>
+        /// Retrieves camera sensors payload.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="cameraId">Camera identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains camera sensors payload.</returns>
+        Task<Dictionary<string, JsonElement>> GetCameraSensorsAsync(int networkId, int cameraId);
+
+        /// <summary>
+        /// Retrieves sync events for a specific network.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains sync events payload.</returns>
+        Task<Dictionary<string, JsonElement>> GetSyncEventsAsync(int networkId);
+
+        /// <summary>
+        /// Arms a Blink network.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> ArmSystemAsync(int networkId);
+
+        /// <summary>
+        /// Disarms a Blink network.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> DisarmSystemAsync(int networkId);
+
+        /// <summary>
+        /// Retrieves account notification configuration.
+        /// </summary>
+        /// <returns>A task that represents the asynchronous operation. The task result contains notification configuration.</returns>
+        Task<NotificationConfigurationResponse> GetNotificationConfigurationAsync();
+
+        /// <summary>
+        /// Updates account notification configuration.
+        /// </summary>
+        /// <param name="notifications">Notification flags to update.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> SetNotificationConfigurationAsync(IReadOnlyDictionary<string, bool> notifications);
+
+        /// <summary>
+        /// Requests a new image capture from camera.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="cameraId">Camera identifier.</param>
+        /// <param name="cameraType">Camera product family type.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> RequestNewImageAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default);
+
+        /// <summary>
+        /// Requests a new video capture from camera.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="cameraId">Camera identifier.</param>
+        /// <param name="cameraType">Camera product family type.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> RequestNewVideoAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default);
+
+        /// <summary>
+        /// Requests camera live view session.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="cameraId">Camera identifier.</param>
+        /// <param name="cameraType">Camera product family type.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> RequestCameraLiveViewAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default);
+
+        /// <summary>
+        /// Enables motion detection for camera.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="cameraId">Camera identifier.</param>
+        /// <param name="cameraType">Camera product family type.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> EnableMotionDetectionAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default);
+
+        /// <summary>
+        /// Disables motion detection for camera.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="cameraId">Camera identifier.</param>
+        /// <param name="cameraType">Camera product family type.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> DisableMotionDetectionAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default);
 
         /// <summary>
         /// Retrieves a specified video asynchronously.

@@ -91,7 +91,7 @@ namespace Blink
             }
             if (!response.IsSuccessStatusCode)
             {
-                throw new BlinkClientException($"Failed to verify pin - {response.StatusCode} ({response.ReasonPhrase}) - {content}");
+                throw new BlinkClientException($"Failed to authorize with refresh token - {response.StatusCode} ({response.ReasonPhrase}) - {content}");
             }
             _lastLoginResult = System.Text.Json.JsonSerializer.Deserialize<LoginResult>(content)
                 ?? throw new BlinkClientException("Failed to verify pin - no content");

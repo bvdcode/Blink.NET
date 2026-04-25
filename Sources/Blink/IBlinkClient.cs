@@ -66,6 +66,13 @@ namespace Blink
         Task<NetworkStatusResponse> GetNetworkStatusAsync(int networkId);
 
         /// <summary>
+        /// Retrieves sync module payload for a specific network.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains sync module payload.</returns>
+        Task<Dictionary<string, JsonElement>> GetSyncModuleInfoAsync(int networkId);
+
+        /// <summary>
         /// Retrieves camera usage information for all networks.
         /// </summary>
         /// <returns>A task that represents the asynchronous operation. The task result contains camera usage.</returns>
@@ -100,6 +107,35 @@ namespace Blink
         /// <param name="networkId">Network identifier.</param>
         /// <returns>A task that represents the asynchronous operation. The task result contains sync events payload.</returns>
         Task<Dictionary<string, JsonElement>> GetSyncEventsAsync(int networkId);
+
+        /// <summary>
+        /// Requests network update.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates command completion.</returns>
+        Task<bool> RequestNetworkUpdateAsync(int networkId);
+
+        /// <summary>
+        /// Retrieves command status for a network command id.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="commandId">Command identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains command status payload.</returns>
+        Task<CommandStatus> GetCommandStatusAsync(int networkId, long commandId);
+
+        /// <summary>
+        /// Marks network command as done.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="commandId">Command identifier.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result indicates success.</returns>
+        Task<bool> MarkCommandDoneAsync(int networkId, long commandId);
+
+        /// <summary>
+        /// Retrieves total cloud video count from Blink API v2 endpoint.
+        /// </summary>
+        /// <returns>A task that represents the asynchronous operation. The task result contains cloud video count.</returns>
+        Task<int> GetCloudVideoCountAsync();
 
         /// <summary>
         /// Arms a Blink network.

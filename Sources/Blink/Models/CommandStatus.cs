@@ -2,7 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace Blink.Models
 {
-    internal class CommandStatus
+    /// <summary>
+    /// Status payload for Blink command polling endpoint.
+    /// </summary>
+    public class CommandStatus
     {
         [JsonPropertyName("status_code")]
         public int StatusCode { get; set; }

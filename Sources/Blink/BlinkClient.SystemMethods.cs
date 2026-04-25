@@ -37,6 +37,19 @@ namespace Blink
         }
 
         /// <summary>
+        /// Retrieves sync module payload for a specific network.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns>Sync module payload as key-value JSON dictionary.</returns>
+        /// <exception cref="BlinkClientException">Thrown when <paramref name="networkId"/> is invalid or request fails.</exception>
+        public async Task<Dictionary<string, JsonElement>> GetSyncModuleInfoAsync(int networkId)
+        {
+            ValidateNetworkId(networkId);
+            string url = $"/network/{networkId}/syncmodules";
+            return await GetJsonDictionaryAsync(url, "Failed to get sync module info");
+        }
+
+        /// <summary>
         /// Retrieves camera usage information for all networks.
         /// </summary>
         /// <returns>Camera usage response.</returns>
@@ -99,6 +112,87 @@ namespace Blink
             ValidateNetworkId(networkId);
             string url = $"/events/network/{networkId}";
             return await GetJsonDictionaryAsync(url, "Failed to get sync events");
+        }
+
+        /// <summary>
+        /// Requests network update.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <returns><see langword="true"/> if request completed successfully; otherwise <see langword="false"/>.</returns>
+        /// <exception cref="BlinkClientException">Thrown when <paramref name="networkId"/> is invalid or request fails.</exception>
+        public async Task<bool> RequestNetworkUpdateAsync(int networkId)
+        {
+            ValidateNetworkId(networkId);
+            string url = $"/network/{networkId}/update";
+            return await ExecuteCommandRequestAsync(url, networkId, null, "Failed to request network update");
+        }
+
+        /// <summary>
+        /// Retrieves command status for a network command id.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="commandId">Command identifier.</param>
+        /// <returns>Command status payload.</returns>
+        /// <exception cref="BlinkClientException">Thrown when ids are invalid or request fails.</exception>
+        public async Task<CommandStatus> GetCommandStatusAsync(int networkId, long commandId)
+        {
+            ValidateNetworkId(networkId);
+            if (commandId <= 0)
+            {
+                throw new BlinkClientException("commandId must be greater than 0");
+            }
+
+            string url = $"/network/{networkId}/command/{commandId}";
+            return await GetJsonAsync<CommandStatus>(url, "Failed to get command status");
+        }
+
+        /// <summary>
+        /// Marks network command as done.
+        /// </summary>
+        /// <param name="networkId">Network identifier.</param>
+        /// <param name="commandId">Command identifier.</param>
+        /// <returns><see langword="true"/> if operation succeeded; otherwise <see langword="false"/>.</returns>
+        /// <exception cref="BlinkClientException">Thrown when ids are invalid or request fails.</exception>
+        public async Task<bool> MarkCommandDoneAsync(int networkId, long commandId)
+        {
+            ValidateNetworkId(networkId);
+            if (commandId <= 0)
+            {
+                throw new BlinkClientException("commandId must be greater than 0");
+            }
+
+            string url = $"/network/{networkId}/command/{commandId}/done/";
+            var httpClient = await GetHttpClientAsync();
+            var response = await httpClient.PostAsync(url, null);
+            if (!response.IsSuccessStatusCode)
+            {
+                string error = await response.Content.ReadAsStringAsync();
+                throw new BlinkClientException($"Failed to mark command done - {response.ReasonPhrase} - {error}");
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Retrieves total cloud video count from Blink API v2 endpoint.
+        /// </summary>
+        /// <returns>Cloud video count if available.</returns>
+        /// <exception cref="BlinkClientException">Thrown when request fails.</exception>
+        public async Task<int> GetCloudVideoCountAsync()
+        {
+            const string url = "/api/v2/videos/count";
+            var response = await GetJsonDictionaryAsync(url, "Failed to get cloud video count");
+            if (response.TryGetValue("count", out JsonElement countElement) && countElement.TryGetInt32(out int count))
+            {
+                return count;
+            }
+
+            if (response.TryGetValue("videos_count", out JsonElement videosCountElement) && videosCountElement.TryGetInt32(out int videosCount))
+            {
+                return videosCount;
+            }
+
+            return 0;
         }
 
         /// <summary>

@@ -381,12 +381,8 @@ namespace Blink
                 throw new BlinkClientException("Failed to complete OAuth v2 login after 2FA - missing authorization code");
             }
 
-            var loginResult = await ExchangeOAuthAuthorizationCodeForTokenAsync(_oauthHttp, authorizationCode, _oauthCodeVerifier);
-            if (loginResult == null)
-            {
-                throw new BlinkClientException("Failed to complete OAuth v2 login after 2FA - unable to exchange code for token");
-            }
-
+            var loginResult = await ExchangeOAuthAuthorizationCodeForTokenAsync(_oauthHttp, authorizationCode, _oauthCodeVerifier)
+                ?? throw new BlinkClientException("Failed to complete OAuth v2 login after 2FA - unable to exchange code for token");
             await ApplySuccessfulLoginAsync(loginResult);
             ClearPendingOAuthState(disposeSession: true);
             return true;

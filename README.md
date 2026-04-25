@@ -21,6 +21,8 @@ A .NET library (netstandard2.1) for accessing local Blink camera storage: fetchi
 - Getting the list of clips from a module's local storage.
 - Download a clip as a byte array.
 - Delete a clip from the device.
+- List cloud clips from Blink cloud storage.
+- Download cloud clips as byte arrays.
 - Configurable delay between requests to stabilize the API.
 
 ## Installation
@@ -182,6 +184,8 @@ Token handling:
 - Task<IEnumerable<BlinkVideoInfo>> GetVideosFromSingleModuleAsync()
 - Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 3)
 - Task DeleteVideoAsync(BlinkVideoInfo video)
+- Task<IEnumerable<CloudClipInfo>> GetCloudVideosAsync(DateTime? sinceUtc = null, int maxPages = 10, bool includeDeleted = false)
+- Task<byte[]> GetCloudVideoBytesAsync(CloudClipInfo video)
 
 Login/token flows:
 

@@ -188,65 +188,108 @@ namespace Blink
             {
                 throw new BlinkClientException("Not authorized");
             }
+            ValidateLocalVideoData(video);
+
+            string url = BuildLocalVideoRequestUrl(video);
+            var httpClient = await GetHttpClientAsync();
+            var (videoBytes, contentType, response) = await TryDownloadLocalVideoAsync(httpClient, video, url, tryCount);
+            if (videoBytes != null)
+            {
+                return videoBytes;
+            }
+
+            string responseContent = await ReadResponseContentSafeAsync(response);
+            throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response?.ReasonPhrase ?? "Unknown Error"}. " +
+                $"Please create an issue if you see this error. Content: " + responseContent);
+        }
+
+        private static void ValidateLocalVideoData(BlinkVideoInfo video)
+        {
             if (video.NetworkId == 0 || video.ModuleId == 0 || string.IsNullOrWhiteSpace(video.ManifestId))
             {
                 throw new BlinkClientException("Video data is not valid");
             }
-            string url = $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
-                $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/request/{video.Id}";
+        }
 
-            int count = 0;
+        private string BuildLocalVideoRequestUrl(BlinkVideoInfo video)
+        {
+            return $"/api/v1/accounts/{_accountId}/networks/{video.NetworkId}/" +
+                $"sync_modules/{video.ModuleId}/local_storage/manifest/{video.ManifestId}/clip/request/{video.Id}";
+        }
+
+        private async Task<(byte[]? VideoBytes, string ContentType, HttpResponseMessage? LastResponse)> TryDownloadLocalVideoAsync(
+            HttpClient httpClient,
+            BlinkVideoInfo video,
+            string url,
+            int tryCount)
+        {
             string contentType = string.Empty;
             HttpResponseMessage? response = null;
-            var httpClient = await GetHttpClientAsync();
-            while (count++ < tryCount)
+
+            for (int attempt = 0; attempt < tryCount; attempt++)
             {
                 await Task.Delay(GeneralSleepTime);
 
-                var requestResponse = await httpClient.PostAsync(url, null);
-                if (!requestResponse.IsSuccessStatusCode)
-                {
-                    continue;
-                }
-
-                var requestInfo = await requestResponse.Content.ReadFromJsonAsync<ManifestData>();
-                if (requestInfo != null)
-                {
-                    bool commandCompleted = await WaitForCommandCompletionAsync(httpClient, video.NetworkId, requestInfo.Id);
-                    if (!commandCompleted)
-                    {
-                        continue;
-                    }
-                }
-
-                response = await httpClient.GetAsync(url);
-                if (!response.IsSuccessStatusCode)
+                response = await RequestLocalVideoClipAsync(httpClient, video.NetworkId, url);
+                if (response == null)
                 {
                     continue;
                 }
 
                 contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
-                if (contentType.StartsWith("video/"))
+                if (contentType.StartsWith("video/", StringComparison.Ordinal))
                 {
-                    return await response.Content.ReadAsByteArrayAsync();
+                    return (await response.Content.ReadAsByteArrayAsync(), contentType, response);
                 }
             }
 
-            // DEBUG: try to read response content for better error message if not video/mp4
-            string responseContent = "No response";
-            if (response != null)
+            return (null, contentType, response);
+        }
+
+        private async Task<HttpResponseMessage?> RequestLocalVideoClipAsync(HttpClient httpClient, int networkId, string url)
+        {
+            var requestResponse = await httpClient.PostAsync(url, null);
+            if (!requestResponse.IsSuccessStatusCode)
             {
-                try
-                {
-                    responseContent = await response.Content.ReadAsStringAsync();
-                }
-                catch (Exception ex)
-                {
-                    responseContent = "Failed to read response content: " + ex.Message;
-                }
+                return null;
             }
-            throw new BlinkClientException($"Failed to get video {video.Id}, contentType {contentType} - {response?.ReasonPhrase ?? "Unknown Error"}. " +
-                $"Please create an issue if you see this error. Content: " + responseContent);
+
+            bool commandCompleted = await WaitForClipRequestCompletionAsync(httpClient, networkId, requestResponse);
+            if (!commandCompleted)
+            {
+                return null;
+            }
+
+            var response = await httpClient.GetAsync(url);
+            return response.IsSuccessStatusCode ? response : null;
+        }
+
+        private async Task<bool> WaitForClipRequestCompletionAsync(HttpClient httpClient, int networkId, HttpResponseMessage requestResponse)
+        {
+            var requestInfo = await requestResponse.Content.ReadFromJsonAsync<ManifestData>();
+            if (requestInfo == null)
+            {
+                return true;
+            }
+
+            return await WaitForCommandCompletionAsync(httpClient, networkId, requestInfo.Id);
+        }
+
+        private static async Task<string> ReadResponseContentSafeAsync(HttpResponseMessage? response)
+        {
+            if (response == null)
+            {
+                return "No response";
+            }
+
+            try
+            {
+                return await response.Content.ReadAsStringAsync();
+            }
+            catch (Exception ex)
+            {
+                return "Failed to read response content: " + ex.Message;
+            }
         }
 
         /// <summary>

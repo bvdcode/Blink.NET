@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Blink", "Blink\Blink.csproj
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Blink.ConsoleTest", "Blink.ConsoleTest\Blink.ConsoleTest.csproj", "{C8CD3FB1-D189-4289-979F-95269E7D6CB2}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Blink.Tests", "Blink.Tests\Blink.Tests.csproj", "{5F5EB97F-8EB6-43A4-8E5E-2AE464D4AD5F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{C8CD3FB1-D189-4289-979F-95269E7D6CB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8CD3FB1-D189-4289-979F-95269E7D6CB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8CD3FB1-D189-4289-979F-95269E7D6CB2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5F5EB97F-8EB6-43A4-8E5E-2AE464D4AD5F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5F5EB97F-8EB6-43A4-8E5E-2AE464D4AD5F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5F5EB97F-8EB6-43A4-8E5E-2AE464D4AD5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5F5EB97F-8EB6-43A4-8E5E-2AE464D4AD5F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

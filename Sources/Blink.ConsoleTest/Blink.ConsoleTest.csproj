@@ -15,4 +15,8 @@
 		<ProjectReference Include="..\Blink\Blink.csproj" />
 	</ItemGroup>
 
+	<ItemGroup Condition="Exists('secrets.json')">
+		<None Include="secrets.json" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
 </Project>

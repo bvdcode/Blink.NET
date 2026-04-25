@@ -12,16 +12,19 @@
 
 # Blink.NET
 
-A .NET library (netstandard2.1) for accessing local Blink camera storage: fetching the list of clips, downloading and deleting videos. Works on runtimes that support .NET Standard 2.1 (for example .NET 6/7/8/9, .NET Core 3.0+).
+A .NET library (netstandard2.1) for Blink cameras: OAuth v2 authorization (with 2FA and refresh-token flow), local storage clips, cloud clips, and system/network/camera commands. Works on runtimes that support .NET Standard 2.1 (for example .NET 6/7/8/9, .NET Core 3.0+).
 
 ## Features
 
-- Login/password authorization and PIN confirmation (2FA).
-- Fetching dashboard data and the list of Sync Modules.
-- Getting the list of clips from a module's local storage.
-- Download a clip as a byte array.
-- Delete a clip from the device.
-- Configurable delay between requests to stabilize the API.
+- OAuth v2 + PKCE authorization with PIN confirmation (2FA).
+- Refresh-token login flow for subsequent runs.
+- Dashboard and Sync Module listing.
+- Local clip listing/download/delete (with command completion polling).
+- Cloud clip listing/download.
+- Network/system methods: network summary, status, arm/disarm, update request.
+- Camera methods: camera payload/sensors, snap/record/liveview, motion enable/disable.
+- Account methods: notification configuration get/set, camera usage, command status helpers.
+- Configurable delay between requests to stabilize Blink API calls.
 
 ## Installation
 
@@ -174,14 +177,46 @@ await File.WriteAllBytesAsync($"{video.Id}.mp4", data);
 Token handling:
 
 - RefreshToken (string?) — populated after successful 2FA. Store it securely and use `TryLoginWithRefreshTokenAsync` to skip 2FA on subsequent runs.
+- HardwareId (string) — used by OAuth flow. Persist this value between runs for better refresh-token stability.
 
 ## Brief API overview
 
-- Task<Dashboard> GetDashboardAsync()
+Media:
+
 - Task<IEnumerable<BlinkVideoInfo>> GetVideosFromModuleAsync(SyncModule module)
 - Task<IEnumerable<BlinkVideoInfo>> GetVideosFromSingleModuleAsync()
 - Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 3)
 - Task DeleteVideoAsync(BlinkVideoInfo video)
+- Task<IEnumerable<CloudClipInfo>> GetCloudVideosAsync(DateTime? sinceUtc = null, int maxPages = 10, bool includeDeleted = false)
+- Task<byte[]> GetCloudVideoBytesAsync(CloudClipInfo video)
+
+Dashboard/system/network:
+
+- Task<Dashboard> GetDashboardAsync()
+- Task<NetworkSummaryResponse> GetNetworksAsync()
+- Task<NetworkStatusResponse> GetNetworkStatusAsync(int networkId)
+- Task<Dictionary<string, JsonElement>> GetSyncModuleInfoAsync(int networkId)
+- Task<Dictionary<string, JsonElement>> GetSyncEventsAsync(int networkId)
+- Task<bool> RequestNetworkUpdateAsync(int networkId)
+- Task<bool> ArmSystemAsync(int networkId)
+- Task<bool> DisarmSystemAsync(int networkId)
+- Task<int> GetCloudVideoCountAsync()
+- Task<CommandStatus> GetCommandStatusAsync(int networkId, long commandId)
+- Task<bool> MarkCommandDoneAsync(int networkId, long commandId)
+
+Camera/account methods:
+
+- Task<CameraUsageResponse> GetCameraUsageAsync()
+- Task<Dictionary<string, JsonElement>> GetCamerasAsync(int networkId)
+- Task<Dictionary<string, JsonElement>> GetCameraInfoAsync(int networkId, int cameraId)
+- Task<Dictionary<string, JsonElement>> GetCameraSensorsAsync(int networkId, int cameraId)
+- Task<NotificationConfigurationResponse> GetNotificationConfigurationAsync()
+- Task<bool> SetNotificationConfigurationAsync(IReadOnlyDictionary<string, bool> notifications)
+- Task<bool> RequestNewImageAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default)
+- Task<bool> RequestNewVideoAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default)
+- Task<bool> RequestCameraLiveViewAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default)
+- Task<bool> EnableMotionDetectionAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default)
+- Task<bool> DisableMotionDetectionAsync(int networkId, int cameraId, BlinkCameraType cameraType = BlinkCameraType.Default)
 
 Login/token flows:
 
@@ -205,14 +240,18 @@ See models and exceptions in `Sources/Blink/Models` and `Sources/Blink/Exception
 
 There is a small example in `Sources/Blink.ConsoleTest`:
 
-1. Create a `secrets.json` file next to `Program.cs` with your login/password:
+1. Create a `secrets.json` file next to `Program.cs`:
 
 ```json
 {
   "email": "you@example.com",
-  "password": "YourPassword"
+  "password": "YourPassword",
+  "refreshToken": "",
+  "hardwareId": ""
 }
 ```
+
+`refreshToken` and `hardwareId` can be empty on first run. The console app will update them after successful authorization.
 
 2. Build and run:
 
@@ -222,11 +261,34 @@ dotnet build
 dotnet run
 ```
 
+## Live integration tests
+
+The repository includes live integration tests in `Sources/Blink.Tests`.
+
+What tests validate:
+
+- Refresh-token authorization (`TryLoginWithRefreshTokenAsync`).
+- Core read methods (dashboard, networks, notifications, camera usage).
+- Local video download to disk when local clips are available.
+- Cloud video download when active cloud clips are available.
+
+Run tests:
+
+```powershell
+dotnet test Sources/Blink.Tests/Blink.Tests.csproj
+```
+
+The tests use `Sources/Blink.ConsoleTest/secrets.json` and write downloaded test videos to a temp folder (`%TEMP%/Blink.NET.Tests.Downloads`).
+
 ## Requirements and limitations
 
 - A Blink account and at least one Sync Module with local storage are required.
 - Client verification (PIN via SMS) is often enabled. This is normal behavior.
 - The Blink API can be unstable without pauses between requests — use `GeneralSleepTime`.
+- Some endpoints are account/region dependent and may be unavailable:
+  - `GetSyncEventsAsync` can return `{"message":"An app update is required"}`.
+  - `GetCloudVideoCountAsync` can return `404 Not Found` for some setups.
+- Cloud feeds can be legitimately empty even when local clips exist (for example when account cloud storage stats are `0`).
 
 Note on clip IDs (observed behavior):
 

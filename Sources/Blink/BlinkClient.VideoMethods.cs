@@ -2,6 +2,7 @@
 using System.Linq;
 using Blink.Models;
 using System.Net.Http;
+using System.Globalization;
 using Blink.Exceptions;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -83,6 +84,94 @@ namespace Blink
             var module = dashboard.SyncModules.SingleOrDefault()
                 ?? throw new BlinkClientException("No sync modules found");
             return await GetVideosFromModuleAsync(module);
+        }
+
+        /// <summary>
+        /// Get cloud clip metadata from Blink cloud storage.
+        /// </summary>
+        /// <param name="sinceUtc">Optional UTC timestamp to fetch clips changed since that time. If null, requests clips from Unix epoch.</param>
+        /// <param name="maxPages">Maximum number of pages to request from cloud media endpoint.</param>
+        /// <param name="includeDeleted">If true, includes clips marked as deleted by API.</param>
+        /// <returns>Collection of <see cref="CloudClipInfo"/> objects with cloud clip metadata.</returns>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
+        /// <exception cref="BlinkClientException">Thrown when failed to get cloud clips</exception>
+        public async Task<IEnumerable<CloudClipInfo>> GetCloudVideosAsync(DateTime? sinceUtc = null, int maxPages = 10, bool includeDeleted = false)
+        {
+            if (_accountId == null)
+            {
+                throw new BlinkClientException("Not authorized");
+            }
+
+            if (maxPages <= 0)
+            {
+                throw new BlinkClientException("maxPages must be greater than 0");
+            }
+
+            var httpClient = await GetHttpClientAsync();
+            string sinceTimestamp = Uri.EscapeDataString(ToBlinkTimestamp(sinceUtc));
+            var clips = new List<CloudClipInfo>();
+
+            for (int page = 1; page <= maxPages; page++)
+            {
+                string url = $"/api/v1/accounts/{_accountId}/media/changed?since={sinceTimestamp}&page={page}";
+                var response = await httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    string error = await response.Content.ReadAsStringAsync();
+                    throw new BlinkClientException($"Failed to get cloud clips - {response.ReasonPhrase} - {error}");
+                }
+
+                var resultPage = await response.Content.ReadFromJsonAsync<CloudClipPage>()
+                    ?? throw new BlinkClientException("Failed to get cloud clips - no content");
+                if (resultPage.Clips.Length == 0)
+                {
+                    break;
+                }
+
+                foreach (var clip in resultPage.Clips)
+                {
+                    if (!includeDeleted && clip.IsDeleted)
+                    {
+                        continue;
+                    }
+
+                    NormalizeCloudMediaUrl(httpClient, clip);
+                    clips.Add(clip);
+                }
+            }
+
+            return clips;
+        }
+
+        /// <summary>
+        /// Download cloud clip as bytes.
+        /// </summary>
+        /// <param name="video"><see cref="CloudClipInfo"/> object with cloud clip metadata</param>
+        /// <returns>Video bytes</returns>
+        /// <exception cref="BlinkClientException">Thrown when not authorized</exception>
+        /// <exception cref="BlinkClientException">Thrown when cloud clip data is not valid</exception>
+        public async Task<byte[]> GetCloudVideoBytesAsync(CloudClipInfo video)
+        {
+            if (_accountId == null)
+            {
+                throw new BlinkClientException("Not authorized");
+            }
+
+            if (video == null || string.IsNullOrWhiteSpace(video.MediaUrl))
+            {
+                throw new BlinkClientException("Cloud clip data is not valid");
+            }
+
+            var httpClient = await GetHttpClientAsync();
+            Uri mediaUri = ResolveCloudMediaUri(httpClient, video.MediaUrl);
+            var response = await httpClient.GetAsync(mediaUri);
+            if (!response.IsSuccessStatusCode)
+            {
+                string error = await response.Content.ReadAsStringAsync();
+                throw new BlinkClientException($"Failed to download cloud clip - {response.ReasonPhrase} - {error}");
+            }
+
+            return await response.Content.ReadAsByteArrayAsync();
         }
 
         /// <summary>
@@ -198,6 +287,52 @@ namespace Blink
             }
 
             result.EnsureSuccessStatusCode();
+        }
+
+        private static string ToBlinkTimestamp(DateTime? value)
+        {
+            DateTime utc = value.HasValue ? NormalizeUtc(value.Value) : DateTime.UnixEpoch;
+            return utc.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture) + "+0000";
+        }
+
+        private static DateTime NormalizeUtc(DateTime value)
+        {
+            return value.Kind switch
+            {
+                DateTimeKind.Utc => value,
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+                _ => value.ToUniversalTime(),
+            };
+        }
+
+        private static void NormalizeCloudMediaUrl(HttpClient httpClient, CloudClipInfo clip)
+        {
+            if (string.IsNullOrWhiteSpace(clip.MediaUrl) || httpClient.BaseAddress == null)
+            {
+                return;
+            }
+
+            if (Uri.TryCreate(clip.MediaUrl, UriKind.Absolute, out _))
+            {
+                return;
+            }
+
+            clip.MediaUrl = new Uri(httpClient.BaseAddress, clip.MediaUrl).ToString();
+        }
+
+        private static Uri ResolveCloudMediaUri(HttpClient httpClient, string mediaUrl)
+        {
+            if (Uri.TryCreate(mediaUrl, UriKind.Absolute, out var absoluteUri))
+            {
+                return absoluteUri;
+            }
+
+            if (httpClient.BaseAddress == null)
+            {
+                throw new BlinkClientException("Cloud clip URL is not absolute and base address is unavailable");
+            }
+
+            return new Uri(httpClient.BaseAddress, mediaUrl);
         }
 
         private async Task<bool> WaitForCommandCompletionAsync(HttpClient httpClient, int networkId, long commandId, int maxRetry = 120)

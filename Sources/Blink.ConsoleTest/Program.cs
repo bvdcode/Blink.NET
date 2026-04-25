@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using Blink.Exceptions;
 using Serilog;
 
 namespace Blink.ConsoleTest
@@ -50,9 +51,20 @@ namespace Blink.ConsoleTest
             logger.Information("Dashboard retrieved. Modules count: {Count}", dashboard.SyncModules.Length);
             if (dashboard.SyncModules.Length > 0)
             {
-                var videos = await client.GetVideosFromModuleAsync(dashboard.SyncModules[0]);
-                logger.Information("Videos listed from first module: {Count}", videos.Count());
+                try
+                {
+                    var localVideos = await client.GetVideosFromModuleAsync(dashboard.SyncModules[0]);
+                    logger.Information("Local videos listed from first module: {Count}", localVideos.Count());
+                }
+                catch (BlinkClientException ex)
+                {
+                    logger.Warning(ex, "Failed to list local videos, continuing with cloud clips.");
+                }
             }
+
+            var cloudVideos = (await client.GetCloudVideosAsync(maxPages: 5, includeDeleted: true)).ToList();
+            int activeCloudCount = cloudVideos.Count(video => !video.IsDeleted);
+            logger.Information("Cloud clips listed: {Count} (active: {ActiveCount})", cloudVideos.Count, activeCloudCount);
         }
 
         private static async Task<bool> TryAuthorizeAsync(ILogger logger, BlinkClient client, ConsoleSecrets secrets)

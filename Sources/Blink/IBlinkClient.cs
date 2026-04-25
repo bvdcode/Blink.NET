@@ -60,6 +60,22 @@ namespace Blink
         Task<byte[]> GetVideoBytesAsync(BlinkVideoInfo video, int tryCount = 3);
 
         /// <summary>
+        /// Retrieves cloud clip metadata from Blink cloud storage.
+        /// </summary>
+        /// <param name="sinceUtc">Optional UTC timestamp to fetch clips changed since that time. If null, all available pages are queried from epoch.</param>
+        /// <param name="maxPages">Maximum number of pages to request from the cloud media endpoint.</param>
+        /// <param name="includeDeleted">If true, includes clips marked as deleted by the API.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains cloud clip metadata.</returns>
+        Task<IEnumerable<CloudClipInfo>> GetCloudVideosAsync(DateTime? sinceUtc = null, int maxPages = 10, bool includeDeleted = false);
+
+        /// <summary>
+        /// Downloads a cloud clip as bytes using its media URL.
+        /// </summary>
+        /// <param name="video">Cloud clip metadata.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains clip bytes.</returns>
+        Task<byte[]> GetCloudVideoBytesAsync(CloudClipInfo video);
+
+        /// <summary>
         /// Get videos from single module (the first one in the dashboard). Throws exception if more than one module found.
         /// </summary>
         /// <returns>Collection of <see cref="BlinkVideoInfo"/> objects with video data</returns>

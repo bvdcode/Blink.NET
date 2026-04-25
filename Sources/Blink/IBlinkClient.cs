@@ -33,6 +33,12 @@ namespace Blink
         string? RefreshToken { get; }
 
         /// <summary>
+        /// Gets or sets the hardware identifier used by OAuth v2 flows.
+        /// Persist this value between runs to improve refresh-token reliability.
+        /// </summary>
+        string HardwareId { get; set; }
+
+        /// <summary>
         /// Deletes a specified video asynchronously.
         /// </summary>
         /// <param name="video">The video information to delete.</param>

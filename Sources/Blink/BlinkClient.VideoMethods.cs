@@ -19,20 +19,38 @@ namespace Blink
         /// <exception cref="BlinkClientException">Thrown when failed to get videos</exception>
         public async Task<IEnumerable<BlinkVideoInfo>> GetVideosFromModuleAsync(SyncModule module)
         {
-            string url = $"/api/v1/accounts/{_accountId}/networks/{module.NetworkId}/" +
+            if (_accountId == null)
+            {
+                throw new BlinkClientException("Not authorized");
+            }
+
+            string manifestRequestUrl = $"/api/v1/accounts/{_accountId}/networks/{module.NetworkId}/" +
                 $"sync_modules/{module.Id}/local_storage/manifest/request";
             await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
             var httpClient = await GetHttpClientAsync();
-            var result = await httpClient.PostAsync(url, null);
+            var result = await httpClient.PostAsync(manifestRequestUrl, null);
             if (!result.IsSuccessStatusCode)
             {
                 throw new BlinkClientException("Failed to get videos - " + result.ReasonPhrase);
             }
+
             var manifestData = await result.Content.ReadFromJsonAsync<ManifestData>()
                 ?? throw new BlinkClientException("Failed to get videos - no content");
-            url += $"/{manifestData.Id}";
+            bool commandCompleted = await WaitForCommandCompletionAsync(httpClient, module.NetworkId, manifestData.Id);
+            if (!commandCompleted)
+            {
+                throw new BlinkClientException($"Failed to get videos - manifest request {manifestData.Id} did not complete");
+            }
+
+            string manifestUrl = manifestRequestUrl + $"/{manifestData.Id}";
             await Task.Delay(GeneralSleepTime); // I don't know why, but their server returns empty response without this delay
-            var response = await httpClient.GetAsync(url);
+            var response = await httpClient.GetAsync(manifestUrl);
+            if (!response.IsSuccessStatusCode)
+            {
+                string error = await response.Content.ReadAsStringAsync();
+                throw new BlinkClientException($"Failed to get videos - {response.ReasonPhrase} - {error}");
+            }
+
             var videoResponse = await response.Content.ReadFromJsonAsync<VideoResponse>()
                 ?? throw new BlinkClientException("Failed to get videos - no content");
             foreach (var video in videoResponse.Videos)
@@ -95,9 +113,29 @@ namespace Blink
             while (count++ < tryCount)
             {
                 await Task.Delay(GeneralSleepTime);
-                await httpClient.PostAsync(url, null);
+
+                var requestResponse = await httpClient.PostAsync(url, null);
+                if (!requestResponse.IsSuccessStatusCode)
+                {
+                    continue;
+                }
+
+                var requestInfo = await requestResponse.Content.ReadFromJsonAsync<ManifestData>();
+                if (requestInfo != null)
+                {
+                    bool commandCompleted = await WaitForCommandCompletionAsync(httpClient, video.NetworkId, requestInfo.Id);
+                    if (!commandCompleted)
+                    {
+                        continue;
+                    }
+                }
 
                 response = await httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    continue;
+                }
+
                 contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
                 if (contentType.StartsWith("video/"))
                 {
@@ -148,7 +186,47 @@ namespace Blink
                 string error = await result.Content.ReadAsStringAsync();
                 throw new BlinkClientException($"Failed to delete video {video.Id} - {result.ReasonPhrase} - {error}");
             }
+
+            var requestInfo = await result.Content.ReadFromJsonAsync<ManifestData>();
+            if (requestInfo != null)
+            {
+                bool commandCompleted = await WaitForCommandCompletionAsync(httpClient, video.NetworkId, requestInfo.Id);
+                if (!commandCompleted)
+                {
+                    throw new BlinkClientException($"Failed to delete video {video.Id} - command did not complete");
+                }
+            }
+
             result.EnsureSuccessStatusCode();
+        }
+
+        private async Task<bool> WaitForCommandCompletionAsync(HttpClient httpClient, int networkId, long commandId, int maxRetry = 120)
+        {
+            string commandStatusUrl = $"/network/{networkId}/command/{commandId}";
+            for (int attempt = 0; attempt < maxRetry; attempt++)
+            {
+                var response = await httpClient.GetAsync(commandStatusUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    var commandStatus = await response.Content.ReadFromJsonAsync<CommandStatus>();
+                    if (commandStatus != null)
+                    {
+                        if (commandStatus.StatusCode != 908)
+                        {
+                            return false;
+                        }
+
+                        if (commandStatus.Complete)
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                await Task.Delay(1000);
+            }
+
+            return false;
         }
     }
 }

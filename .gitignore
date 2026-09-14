@@ -403,3 +403,4 @@ FodyWeavers.xsd
 /Sources/Mattermost.Tests/secrets.json
 /Sources/Mattermost.ConsoleTest/secrets.json
 downloads/local-*.mp4
+/notes/

@@ -267,13 +267,12 @@ namespace Blink
         /// Attempts to log in using the specified email and password.
         /// </summary>
         /// <remarks>This method sends a login request to the Blink API and evaluates the response to
-        /// determine the outcome.  If the response indicates a precondition failure, the method returns <see
-        /// langword="true"/>.  If the response indicates unauthorized access, the method returns <see
-        /// langword="false"/>.  For all other response statuses, a <see cref="BlinkClientException"/> is
-        /// thrown.</remarks>
+        /// determine the outcome. A successful login or a two-factor challenge (HTTP 202 or 412) returns
+        /// <see langword="true"/>. Complete a pending challenge with <see cref="TryVerifyPinAsync"/>.
+        /// Rejected credentials return <see langword="false"/>.</remarks>
         /// <param name="email">The email address associated with the account. Cannot be null, empty, or whitespace.</param>
         /// <param name="password">The password for the account. Cannot be null, empty, or whitespace.</param>
-        /// <returns><see langword="true"/> if the login attempt requires additional preconditions to be met;  <see
+        /// <returns><see langword="true"/> if authorized or awaiting two-factor verification; <see
         /// langword="false"/> if the login attempt fails due to invalid credentials.</returns>
         /// <exception cref="BlinkClientException">Thrown if <paramref name="email"/> or <paramref name="password"/> is null, empty, or whitespace,  or if an
         /// unexpected error occurs during the login process.</exception>

@@ -145,13 +145,12 @@ namespace Blink
         /// Attempts to log in using the specified email and password.
         /// </summary>
         /// <remarks>This method sends a login request to the Blink API and evaluates the response to
-        /// determine the outcome.  If the response indicates a precondition failure, the method returns <see
-        /// langword="true"/>.  If the response indicates unauthorized access, the method returns <see
-        /// langword="false"/>.  For all other response statuses, a <see cref="BlinkClientException"/> is
-        /// thrown.</remarks>
+        /// determine the outcome. A successful login or a two-factor challenge (HTTP 202 or 412) returns
+        /// <see langword="true"/>. Complete a pending challenge with <see cref="TryVerifyPinAsync"/>.
+        /// Rejected credentials return <see langword="false"/>.</remarks>
         /// <param name="email">The email address associated with the account. Cannot be null, empty, or whitespace.</param>
         /// <param name="password">The password for the account. Cannot be null, empty, or whitespace.</param>
-        /// <returns><see langword="true"/> if the login attempt requires additional preconditions to be met;  <see
+        /// <returns><see langword="true"/> if authorized or awaiting two-factor verification; <see
         /// langword="false"/> if the login attempt fails due to invalid credentials.</returns>
         /// <exception cref="BlinkClientException">Thrown if <paramref name="email"/> or <paramref name="password"/> is null, empty, or whitespace,  or if an
         /// unexpected error occurs during the login process.</exception>
@@ -256,7 +255,7 @@ namespace Blink
 
         private async Task<TierInfo> GetTierInfoAsync()
         {
-            using var httpClient = new HttpClient();
+            using HttpClient httpClient = _httpClientFactory();
             httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
             httpClient.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _lastLoginResult?.AccessToken);
@@ -269,7 +268,7 @@ namespace Blink
         {
             try
             {
-                using HttpClient http = new HttpClient();
+                using HttpClient http = _httpClientFactory();
                 using var request = new HttpRequestMessage(HttpMethod.Post, OAuthTokenUrl);
                 request.Headers.TryAddWithoutValidation("User-Agent", OAuthTokenUserAgent);
                 request.Headers.TryAddWithoutValidation("Accept", "*/*");
@@ -324,7 +323,7 @@ namespace Blink
             }
 
             HttpStatusCode signInStatusCode = await SendOAuthSignInAsync(oauthHttp, email, password, csrfToken);
-            if (signInStatusCode == HttpStatusCode.PreconditionFailed)
+            if (signInStatusCode == HttpStatusCode.Accepted || signInStatusCode == HttpStatusCode.PreconditionFailed)
             {
                 _oauthCsrfToken = csrfToken;
                 _oauthCodeVerifier = codeVerifier;
@@ -391,14 +390,7 @@ namespace Blink
         private HttpClient CreateOAuthSession()
         {
             ClearPendingOAuthState(disposeSession: true);
-            var handler = new HttpClientHandler
-            {
-                AllowAutoRedirect = false,
-                UseCookies = true,
-                CookieContainer = new CookieContainer(),
-            };
-
-            _oauthHttp = new HttpClient(handler, disposeHandler: true);
+            _oauthHttp = _oauthHttpClientFactory();
             return _oauthHttp;
         }
 
@@ -691,7 +683,7 @@ namespace Blink
                 { "scope", "client" },
             };
             var formData = new FormUrlEncodedContent(formDataDict);
-            using HttpClient http = new HttpClient();
+            using HttpClient http = _httpClientFactory();
             http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
             return await http.PostAsync(OAuthTokenUrl, formData);
         }
@@ -707,7 +699,7 @@ namespace Blink
                 { "scope", "client" },
             };
             var formData = new FormUrlEncodedContent(formDataDict);
-            using HttpClient http = new HttpClient();
+            using HttpClient http = _httpClientFactory();
             http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
             if (!string.IsNullOrWhiteSpace(mfaCode))
             {
@@ -744,10 +736,8 @@ namespace Blink
                 return _http;
             }
 
-            _http = new HttpClient()
-            {
-                BaseAddress = new Uri($"https://rest-{_tier}.immedia-semi.com")
-            };
+            _http = _httpClientFactory();
+            _http.BaseAddress = new Uri($"https://rest-{_tier}.immedia-semi.com");
             const string appBuild = AppBuild;
             const string manufacturer = Manufacturer;
             const string androidVersion = OsVersion;

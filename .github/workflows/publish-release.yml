@@ -36,7 +36,9 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
+    - name: Run unit tests
+      run: dotnet test Sources/Blink.Tests/Blink.Tests.csproj --configuration Release --filter FullyQualifiedName~Blink.Tests.Unit
     - name: Build and Pack NuGet package
       run: |
           cd Sources/Blink
